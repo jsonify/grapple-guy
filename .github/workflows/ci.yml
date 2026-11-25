@@ -25,7 +25,10 @@ jobs:
       - name: Xcode version
         run: xcodebuild -version && swift --version
 
+      # Tests and the app build both run even if one fails, so a single run reports everything.
       - name: Core tests (GrappleCore)
+        id: tests
+        continue-on-error: true
         working-directory: Packages/GrappleCore
         run: swift test 2>&1 | tee ../../core-tests.log
 
@@ -36,12 +39,22 @@ jobs:
         run: xcodegen
 
       - name: Build app (iOS Simulator, unsigned)
+        id: build
+        continue-on-error: true
         run: |
-          set -o pipefail
           xcodebuild -project GrappleGuy.xcodeproj -scheme GrappleGuy \
             -destination 'generic/platform=iOS Simulator' \
-            CODE_SIGNING_ALLOWED=NO build 2>&1 | tee app-build.log | grep -E "error:|warning: .*GrappleGuy|BUILD" || true
+            CODE_SIGNING_ALLOWED=NO build 2>&1 | tee app-build.log > /dev/null
           grep -q "BUILD SUCCEEDED" app-build.log
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "===== CORE TESTS: ${{ steps.tests.outcome }} ====="
+          grep -E "error:|Executed [0-9]+ tests" core-tests.log | tail -40 || true
+          echo "===== APP BUILD: ${{ steps.build.outcome }} ====="
+          grep -E "error:|BUILD (SUCCEEDED|FAILED)" app-build.log | sort -u | head -60 || true
+          if [[ "${{ steps.tests.outcome }}" != "success" || "${{ steps.build.outcome }}" != "success" ]]; then exit 1; fi
 
       - name: Upload logs
         if: always()

@@ -272,7 +272,6 @@ public final class Bot {
         while t < 2.5 && lookahead.state == .playing && lookahead.penalties == startPenalties {
             lookahead.step(dt)
             t += dt
-            if lookahead.isTouchingSurface && lookahead.velocity.length < 80 { break }
             if t >= 0.25, Int((t / dt).rounded()) % 6 == 0, lookahead.state == .playing,
                lookahead.penalties == startPenalties, canGrabAPadAhead(from: lookahead) {
                 lastGrabbable = Self.score(lookahead, startPenalties: startPenalties)
@@ -307,7 +306,8 @@ public final class Bot {
         case .playing: break
         }
         if s.penalties > startPenalties { return -5e5 }
-        var score = s.position.x + 0.25 * s.velocity.x + 0.15 * min(s.position.y, 900)
+        // Distance is what matters; forward speed means more to come; a little height helps reach the next pad.
+        var score = s.position.x + 0.4 * max(0, s.velocity.x) + 0.05 * min(s.position.y, 900)
         if s.position.y < s.level.killY + 250 { score -= 1e5 }
         return score
     }
