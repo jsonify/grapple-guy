@@ -81,8 +81,10 @@ public final class Bot {
     private let seed: UInt64
     private let wind: Double
 
-    /// Step used when simulating plans ahead (coarser than the real step, for speed).
-    static let planningStep = 1.0 / 60.0
+    /// Step used when simulating plans ahead: the game's own step, so predictions match what really happens.
+    static let planningStep = 1.0 / 120.0
+    /// A shot must beat coasting (doing nothing) by at least this much to be worth a swing.
+    static let worthASwing = 150.0
 
     public init(level: Level, tuning: Tuning = .default, skill: BotSkill, seed: UInt64, wind: Double, ropeRange: Double) {
         self.skill = skill
@@ -167,7 +169,22 @@ public final class Bot {
         switch phase {
         case .thinking(let until):
             guard clock >= until else { return }
-            guard let plan = makePlan() else {
+            // First: is a shot even needed? Every swing counts, so coast when coasting is good enough.
+            let coast = coastOutcome()
+            if coast.finishes {
+                note("coasting to the goal from \(fmt(sim.position))")
+                phase = .flying(replanAt: clock + 0.25)
+                return
+            }
+            let planned = makePlan()
+            let standingStill = sim.isTouchingSurface && sim.velocity.length < 80
+            let mustAct = coast.score <= Self.unsafe || standingStill
+            if let candidate = planned, !mustAct, candidate.score < coast.score + Self.worthASwing {
+                note("coast is fine (\(Int(coast.score)) vs best shot \(Int(candidate.score)))")
+                phase = .flying(replanAt: clock + 0.2)
+                return
+            }
+            guard let plan = planned?.plan else {
                 note("no plan from \(fmt(sim.position)) rope=\(sim.rope != nil) shot=\(sim.shot != nil) state=\(sim.state)")
                 // Nothing useful in reach: wait (or fall) and look again, with an occasional shot of faith.
                 if clock - lastFaithShot > 2 && sim.fireGrapple(toward: sim.position + Vec2(700, 650), range: ropeRange) {
@@ -210,8 +227,22 @@ public final class Bot {
 
     // MARK: - Planning
 
-    /// The best plan, or nil if nothing in reach is worth a swing.
-    private func makePlan() -> Plan? {
+    /// What happens if the bot does nothing for the planning horizon.
+    private func coastOutcome() -> (score: Double, finishes: Bool) {
+        let coast = sim.copy()
+        coast.simulatesRagdoll = false
+        let startPenalties = coast.penalties
+        var t = 0.0
+        while t < 2.5 && coast.state == .playing && coast.penalties == startPenalties {
+            coast.step(Self.planningStep)
+            t += Self.planningStep
+        }
+        if case .finished = coast.state { return (Self.score(coast, startPenalties: startPenalties), true) }
+        return (Self.score(coast, startPenalties: startPenalties), false)
+    }
+
+    /// The best plan and its score, or nil if nothing in reach is worth a swing.
+    private func makePlan() -> (plan: Plan, score: Double)? {
         let here = sim.position
         // When stuck, look at everything in reach with more hold options.
         let stuck = swingsWithoutProgress >= 3
@@ -220,7 +251,7 @@ public final class Bot {
             .filter { $0.isGrappleable }
             .map(\.bounds)
             // Pads a little behind count too: swinging from one can still carry you forward.
-            .filter { $0.center.x > here.x - 500 && $0.center.distance(to: here) <= ropeRange }
+            .filter { $0.center.x > here.x - 800 && $0.center.distance(to: here) <= ropeRange }
             .sorted { $0.center.x > $1.center.x }  // farthest ahead first
             .prefix(stuck ? 12 : max(1, skill.candidatePads))
 
@@ -246,7 +277,7 @@ public final class Bot {
         var chosen = scored[pick].plan
         chosen.target = chosen.target + Vec2(Double.random(in: -skill.aimNoise...skill.aimNoise, using: &random),
                                              Double.random(in: -skill.aimNoise...skill.aimNoise, using: &random))
-        return chosen
+        return (chosen, scored[pick].score)
     }
 
     /// Simulates a plan ahead (fire → hold → let go → fly) and scores where it ends up.
@@ -298,7 +329,7 @@ public final class Bot {
         while t < 2.5 && lookahead.state == .playing && lookahead.penalties == startPenalties {
             lookahead.step(dt)
             t += dt
-            if t >= 0.25, Int((t / dt).rounded()) % 6 == 0, lookahead.state == .playing,
+            if t >= 0.25, Int((t / dt).rounded()) % 12 == 0, lookahead.state == .playing,
                lookahead.penalties == startPenalties, canGrabAPadAhead(from: lookahead) {
                 lastGrabbable = Self.score(lookahead, startPenalties: startPenalties)
             }
