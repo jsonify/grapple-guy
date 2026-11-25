@@ -25,6 +25,10 @@ final class GameScene: SKScene {
     private let statusCard = Card(padding: CGSize(width: 30, height: 18), cornerRadius: 26)
     /// How-to hint until the first successful grapple.
     private let hintCard = Card(padding: CGSize(width: 18, height: 8))
+    /// Wind direction and strength (only on windy holes).
+    private let windCard = Card(padding: CGSize(width: 14, height: 6), cornerRadius: 14)
+    /// Short "SPLASH! +1" style banners.
+    private let penaltyCard = Card(fill: Palette.overPar, stroke: Palette.outline, padding: CGSize(width: 20, height: 8))
     private var shownSwings = 0
     private var hasAttachedOnce = false
     private var gemNodes: [SKNode] = []
@@ -90,10 +94,11 @@ final class GameScene: SKScene {
         world.addChild(ropeNode)
         world.addChild(stickman)
 
-        for card in [infoCard, goalCard, swingsCard, hintCard, introCard, statusCard] {
+        for card in [infoCard, goalCard, swingsCard, windCard, hintCard, introCard, statusCard, penaltyCard] {
             cameraNode.addChild(card)
         }
         statusCard.set(nil, maxWidth: 0)
+        penaltyCard.set(nil, maxWidth: 0)
         hintCard.run(.repeatForever(.sequence([.fadeAlpha(to: 0.55, duration: 0.8), .fadeAlpha(to: 1, duration: 0.8)])))
 
         showIntro()
@@ -115,6 +120,9 @@ final class GameScene: SKScene {
         background?.layout(screenSize: size)
         // HUD children of the camera use screen points.
         swingsCard.position = CGPoint(x: 0, y: size.height / 2 - 36)
+        windCard.position = CGPoint(x: 0, y: size.height / 2 - 92)
+        penaltyCard.position = CGPoint(x: 0, y: size.height * 0.18)
+        updateWindCard()
         statusCard.position = CGPoint(x: 0, y: size.height * 0.05)
         introCard.position = CGPoint(x: 0, y: size.height * 0.08)
         hintCard.set(Theme.text("Tap to shoot your rope at the ORANGE pads · hold to pull in · let go to fly", size: 17),
@@ -124,7 +132,18 @@ final class GameScene: SKScene {
 
     private func buildLevel() {
         for surface in simulation.level.surfaces {
-            world.addChild(surface.isGrappleable ? LevelArt.gripPad(surface.bounds) : LevelArt.rooftop(surface.bounds))
+            if surface.isGrappleable {
+                world.addChild(LevelArt.gripPad(surface.bounds))
+            } else if surface.material == .sand {
+                world.addChild(LevelArt.sand(surface.bounds))
+            } else {
+                world.addChild(LevelArt.rooftop(surface.bounds))
+            }
+        }
+        for pool in simulation.level.water {
+            let node = LevelArt.water(pool)
+            node.zPosition = 1
+            world.addChild(node)
         }
 
         // Goal: a golf flag standing on whatever rooftop is under the finish line.
@@ -193,6 +212,9 @@ final class GameScene: SKScene {
                 feedback.play(.gem)
                 feedback.haptic(.light)
                 gemNodes[index].run(.group([.scale(to: 2.2, duration: 0.25), .fadeOut(withDuration: 0.25)]))
+            case .penalty(let reason, let at):
+                activeTouch = nil
+                showPenalty(reason, at: at)
             case .checkpointReached(let index):
                 feedback.play(.checkpoint)
                 feedback.haptic(.success)
@@ -294,6 +316,7 @@ final class GameScene: SKScene {
         cameraNode.setScale(baseCameraScale * CGFloat(zoom))
 
         background?.update(cameraPosition: cameraNode.position)
+        updateWindCard()
     }
 
     // MARK: - Input
@@ -403,6 +426,61 @@ final class GameScene: SKScene {
         guard introCard.alpha > 0 else { return }
         introCard.removeAllActions()
         introCard.run(.fadeOut(withDuration: 0.2))
+    }
+
+    private func showPenalty(_ reason: PenaltyReason, at point: Vec2) {
+        let title: String
+        switch reason {
+        case .water:
+            title = "SPLASH!  +1 swing"
+            feedback.play(.splash)
+            showSplash(at: point)
+        case .outOfBounds:
+            title = "OUT OF BOUNDS  +1 swing"
+            feedback.play(.crash)
+        }
+        feedback.haptic(.heavy)
+        shake = 0.6
+        penaltyCard.set(Theme.text(title, size: 24, color: .white, outline: Palette.outline), maxWidth: size.width * 0.8)
+        penaltyCard.removeAllActions()
+        penaltyCard.alpha = 1
+        penaltyCard.run(.sequence([.wait(forDuration: 1.4), .fadeOut(withDuration: 0.3)]))
+        cameraNode.position = CGPoint(simulation.position + Vec2(0, cameraLift))
+    }
+
+    private func showSplash(at point: Vec2) {
+        for i in 0..<10 {
+            let drop = SKShapeNode(circleOfRadius: CGFloat.random(in: 6...12))
+            drop.fillColor = Palette.waterLight
+            drop.strokeColor = Palette.outline
+            drop.lineWidth = 2
+            drop.position = CGPoint(point)
+            drop.zPosition = 2
+            world.addChild(drop)
+            let angle = Double.pi * (0.15 + 0.7 * Double(i) / 9)
+            let distance = Double.random(in: 70...150)
+            drop.run(.sequence([
+                .group([
+                    .move(by: CGVector(dx: cos(angle) * distance, dy: sin(angle) * distance), duration: 0.45),
+                    .fadeOut(withDuration: 0.45),
+                ]),
+                .removeFromParent(),
+            ]))
+        }
+    }
+
+    private func updateWindCard() {
+        let wind = simulation.wind * tuning.windStrength
+        guard abs(wind) >= 1 else {
+            windCard.set(nil, maxWidth: 0)
+            return
+        }
+        // Show strength as 1–5 arrows plus a number.
+        let arrows = max(1, min(5, Int((abs(wind) / 80).rounded(.up))))
+        let arrow = wind > 0 ? "▶" : "◀"
+        let row = String(repeating: arrow, count: arrows)
+        let text = wind > 0 ? "WIND  \(Int(abs(wind) / 20))  \(row)" : "\(row)  \(Int(abs(wind) / 20))  WIND"
+        windCard.set(Theme.text(text, size: 16, color: Palette.boost), maxWidth: size.width * 0.4)
     }
 
     private func showFinish() {

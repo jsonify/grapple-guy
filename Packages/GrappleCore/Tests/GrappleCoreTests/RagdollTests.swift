@@ -100,7 +100,9 @@ final class RagdollTests: XCTestCase {
     }
 
     func testResetRestoresAlivePose() {
-        let sim = SwingSimulation(level: Level(surfaces: [], spawn: .zero, killY: -10, finishX: .infinity))
+        let floor = Surface(bounds: AABB(x: -500, y: -150, width: 1000, height: 50), isGrappleable: false)
+        let sim = SwingSimulation(level: Level(surfaces: [floor], spawn: .zero, killY: -1e9, finishX: .infinity))
+        sim.velocity = Vec2(0, -(sim.tuning.crashImpactSpeed + 500))
         sim.update(deltaTime: 0.25)
         XCTAssertTrue(sim.ragdoll.isLimp)
         sim.reset()

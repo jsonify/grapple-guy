@@ -12,6 +12,16 @@ public enum SimEvent: Equatable, Sendable {
     case ropeMissed(end: Vec2)
     case gemCollected(index: Int)
     case checkpointReached(index: Int)
+    /// +1 stroke; `at` is where it happened. The stickman has already been moved back.
+    case penalty(reason: PenaltyReason, at: Vec2)
+}
+
+/// Golf-style penalties (issue #17): play on from a safe spot, one stroke worse.
+public enum PenaltyReason: Equatable, Sendable {
+    /// Fell into the street.
+    case outOfBounds
+    /// Landed in a water hazard.
+    case water
 }
 
 /// The stickman's torso swinging on a rope (issue #6). Pure Swift, deterministic, fixed timestep.
@@ -55,6 +65,16 @@ public final class SwingSimulation {
     private var accumulator: Double = 0
     /// True while the torso touched a surface during the last step.
     public private(set) var isTouchingSurface = false
+    /// True while the torso touched sand during the last step.
+    public private(set) var isInSand = false
+    /// Whether the rope in flight was fired from sand (weak tug).
+    private var shotFromSand = false
+    /// Steady horizontal wind for this hole (points/s²), picked once per simulation.
+    public private(set) var wind: Double = 0
+    /// Where a penalty puts you back: the last spot you stood still, or the last checkpoint, whichever is newer.
+    public private(set) var safeSpot: Vec2
+    /// Penalty strokes this run (already included in `strokes`).
+    public private(set) var penalties = 0
     /// Drives cosmetic randomness (flips); seeded so tests are repeatable.
     private var random: SeededRandom
     /// How long the current rope has been held.
@@ -84,12 +104,16 @@ public final class SwingSimulation {
     public init(level: Level, tuning: Tuning = .default, fixedTimeStep: Double = 1.0 / 120.0,
                 seed: UInt64 = UInt64.random(in: 0...UInt64.max)) {
         random = SeededRandom(seed: seed)
+        safeSpot = level.spawn
         self.level = level
         self.tuning = tuning
         self.fixedTimeStep = fixedTimeStep
         position = level.spawn
         velocity = .zero
         ragdoll = Ragdoll(torso: level.spawn)
+        if level.windRange > 0 {
+            wind = Double.random(in: -level.windRange...level.windRange, using: &random)
+        }
     }
 
     public var isRopeTaut: Bool {
@@ -100,6 +124,8 @@ public final class SwingSimulation {
     /// Restarts the whole level: strokes, time, gems and checkpoints all reset.
     public func reset() {
         strokes = 0
+        penalties = 0
+        safeSpot = level.spawn
         collectedGems = []
         activeCheckpoint = nil
         position = level.spawn
@@ -143,6 +169,7 @@ public final class SwingSimulation {
             direction = aim
         }
         shot = RopeShot(origin: position, direction: direction, traveled: 0, range: reach)
+        shotFromSand = isInSand
         strokes += 1
         return true
     }
@@ -155,7 +182,7 @@ public final class SwingSimulation {
             shot = nil
             if level.surfaces[hit.surfaceIndex].isGrappleable {
                 attachRope(anchor: hit.point, length: position.distance(to: hit.point))
-                applyAttachTug(toward: hit.point)
+                applyAttachTug(toward: hit.point, scale: shotFromSand ? tuning.sandTugFactor : 1)
                 pendingEvents.append(.ropeAttached(anchor: hit.point))
             } else {
                 pendingEvents.append(.ropeBlocked(at: hit.point))
@@ -238,11 +265,12 @@ public final class SwingSimulation {
     }
 
     /// Without this, a rope fired while standing (or moving slowly) is slack and nothing happens.
-    func applyAttachTug(toward anchor: Vec2) {
+    func applyAttachTug(toward anchor: Vec2, scale: Double = 1) {
         let direction = (anchor - position).normalized
         let along = velocity.dot(direction)
-        if along < tuning.attachTugSpeed {
-            velocity = velocity + direction * (tuning.attachTugSpeed - along)
+        let tug = tuning.attachTugSpeed * scale
+        if along < tug {
+            velocity = velocity + direction * (tug - along)
         }
     }
 
@@ -296,6 +324,9 @@ public final class SwingSimulation {
 
         let gravityScale = isRopeTaut ? tuning.swingGravityMultiplier : 1
         velocity.y -= tuning.gravity * gravityScale * dt
+        if !isTouchingSurface {
+            velocity.x += wind * tuning.windStrength * dt
+        }
         velocity = velocity * max(0, 1 - tuning.airDrag * dt)
         position = position + velocity * dt
 
@@ -303,7 +334,14 @@ public final class SwingSimulation {
         clampSpeed()
 
         if let event = resolveCollisions(dt) { return event }
-        if position.y < level.killY { return crash() }
+        if position.y < level.killY {
+            penalize(.outOfBounds)
+            return nil
+        }
+        if level.water.contains(where: { $0.contains(position) }) {
+            penalize(.water)
+            return nil
+        }
         collectGems()
         reachCheckpoints()
         if position.x >= level.finishX {
@@ -326,6 +364,7 @@ public final class SwingSimulation {
         for (index, checkpoint) in level.checkpoints.enumerated()
         where position.x >= checkpoint.position.x && index > (activeCheckpoint ?? -1) {
             activeCheckpoint = index
+            safeSpot = checkpoint.position
             pendingEvents.append(.checkpointReached(index: index))
         }
     }
@@ -349,6 +388,7 @@ public final class SwingSimulation {
     private func resolveCollisions(_ dt: Double) -> SimEvent? {
         let radius = tuning.torsoRadius
         isTouchingSurface = false
+        isInSand = false
         for surface in level.surfaces {
             var contact = surface.bounds.closestPoint(to: position)
             let offset = position - contact
@@ -365,8 +405,11 @@ public final class SwingSimulation {
                 normal = face.normal
             }
 
-            if -velocity.dot(normal) > tuning.crashImpactSpeed { return crash() }
+            let isSand = surface.material == .sand
+            // Sand softens any landing; everything else crashes on a hard hit.
+            if !isSand && -velocity.dot(normal) > tuning.crashImpactSpeed { return crash() }
             isTouchingSurface = true
+            if isSand { isInSand = true }
 
             position = contact + normal * radius
             let normalSpeed = velocity.dot(normal)
@@ -376,8 +419,28 @@ public final class SwingSimulation {
             let tangentSpeed = velocity.dot(tangent)
             let damped = tangentSpeed * max(0, 1 - tuning.surfaceFriction * dt)
             velocity = velocity + tangent * (damped - tangentSpeed)
+            if isSand {
+                velocity = velocity * max(0, 1 - tuning.sandFriction * dt)
+            }
+
+            // Standing still on top of something solid: that's where a penalty will put you back.
+            if normal.y > 0.7 && velocity.length < 60 && !level.water.contains(where: { $0.contains(position) }) {
+                safeSpot = position
+            }
         }
         return nil
+    }
+
+    /// +1 stroke and back to the safe spot, like golf's stroke-and-distance and water-drop rules.
+    private func penalize(_ reason: PenaltyReason) {
+        pendingEvents.append(.penalty(reason: reason, at: position))
+        strokes += 1
+        penalties += 1
+        position = safeSpot
+        velocity = .zero
+        rope = nil
+        shot = nil
+        ragdoll.reset(torso: position)
     }
 
     private func crash() -> SimEvent {

@@ -23,6 +23,12 @@ public struct Tuning: Equatable, Codable, Sendable {
     /// When the direct shot hits a wall, the fan widens to this many degrees.
     public var aimAssistBlockedAngleDegrees: Double = 35
     public var torsoRadius: Double = 16
+    /// Sand: fraction of speed lost per second while touching sand (stops you dead).
+    public var sandFriction: Double = 30
+    /// Sand: the next rope's attach tug is multiplied by this when fired from sand ("blast out").
+    public var sandTugFactor: Double = 0.4
+    /// Multiplies each hole's wind.
+    public var windStrength: Double = 1
     /// Gems are collected when the torso comes this close.
     public var gemPickupRadius: Double = 40
     /// How strongly arms and legs are pulled back toward their rest pose while alive (per second).

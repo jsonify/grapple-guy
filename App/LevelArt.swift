@@ -51,6 +51,62 @@ enum LevelArt {
         return node
     }
 
+    /// Sand trap: a rooftop sandbox, soft tan with speckles and a thick outline.
+    static func sand(_ b: AABB) -> SKNode {
+        let node = SKNode()
+        let r = rect(b)
+        let body = SKShapeNode(rect: r, cornerRadius: min(12, r.height / 2))
+        body.fillColor = Palette.sand
+        body.strokeColor = Palette.outline
+        body.lineWidth = outlineWidth
+        node.addChild(body)
+        guard r.width > 24, r.height > 16 else { return node }
+        let speckles = CGMutablePath()
+        var random = SceneryRandom(seed: UInt64(abs(b.lower.x)) &+ 17)
+        for _ in 0..<Int(r.width / 9) {
+            let p = CGPoint(x: random.next(Double(r.minX) + 8...Double(r.maxX) - 8),
+                            y: random.next(Double(r.minY) + 6...Double(r.maxY) - 6))
+            speckles.addEllipse(in: CGRect(x: p.x, y: p.y, width: 4, height: 4))
+        }
+        let dots = SKShapeNode(path: speckles)
+        dots.fillColor = Palette.sandDark
+        dots.strokeColor = .clear
+        node.addChild(dots)
+        return node
+    }
+
+    /// Water hazard: a blue pool or river with a lighter, gently moving wave line on top.
+    static func water(_ b: AABB) -> SKNode {
+        let node = SKNode()
+        let r = rect(b)
+        let body = SKShapeNode(rect: r, cornerRadius: 8)
+        body.fillColor = Palette.water
+        body.strokeColor = Palette.outline
+        body.lineWidth = 4
+        node.addChild(body)
+
+        let crop = SKCropNode()
+        let mask = SKShapeNode(rect: r.insetBy(dx: 3, dy: 3), cornerRadius: 6)
+        mask.fillColor = .white
+        crop.maskNode = mask
+        let wave = CGMutablePath()
+        var x = r.minX - 80
+        wave.move(to: CGPoint(x: x, y: r.maxY - 10))
+        while x < r.maxX + 80 {
+            wave.addQuadCurve(to: CGPoint(x: x + 40, y: r.maxY - 10), control: CGPoint(x: x + 20, y: r.maxY - 2))
+            wave.addQuadCurve(to: CGPoint(x: x + 80, y: r.maxY - 10), control: CGPoint(x: x + 60, y: r.maxY - 18))
+            x += 80
+        }
+        let waves = SKShapeNode(path: wave)
+        waves.strokeColor = Palette.waterLight
+        waves.lineWidth = 5
+        waves.lineCap = .round
+        waves.run(.repeatForever(.sequence([.moveBy(x: 80, y: 0, duration: 1.6), .moveBy(x: -80, y: 0, duration: 0)])))
+        crop.addChild(waves)
+        node.addChild(crop)
+        return node
+    }
+
     /// Grappleable surface: a glowing orange grip pad with bolts.
     static func gripPad(_ b: AABB) -> SKNode {
         let node = SKNode()

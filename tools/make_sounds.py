@@ -145,6 +145,22 @@ def finish():
     return render(0.9, f)
 
 
+# Splash: a watery burst with bubbly blips (water hazard).
+def splash():
+    lp = LowPass(900)
+    blips = [(0.05, 520), (0.11, 760), (0.17, 430), (0.24, 640)]
+    out = []
+    for i in range(int(0.6 * RATE)):
+        t = i / RATE
+        s = lp(noise(), 300 + 2500 * math.exp(-t * 6)) * env(t, 0.004, 0.18)
+        for start, freq in blips:
+            if t >= start:
+                u = t - start
+                s += 0.35 * math.sin(2 * math.pi * freq * (1 + 2 * u) * u) * env(u, 0.002, 0.04)
+        out.append(s)
+    return out
+
+
 if __name__ == "__main__":
     os.makedirs(OUT, exist_ok=True)
     write("shoot", shoot(), 0.5)
@@ -155,4 +171,5 @@ if __name__ == "__main__":
     write("checkpoint", checkpoint(), 0.5)
     write("crash", crash(), 0.8)
     write("finish", finish(), 0.6)
+    write("splash", splash(), 0.7)
     print("wrote", sorted(os.listdir(OUT)))

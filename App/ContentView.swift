@@ -4,7 +4,7 @@ import GrappleCore
 
 struct ContentView: View {
     /// Levels the ⏭ button cycles through, in order. A real level select comes with #21.
-    private static let levels = ["level-1", "long-swing", "test-room"]
+    private static let levels = ["level-1", "rooftop-pools", "long-swing", "test-room"]
 
     @State private var levelIndex = 0
     @State private var scene = GameScene(level: LevelLoader.load(ContentView.levels[0]))

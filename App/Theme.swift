@@ -25,6 +25,11 @@ enum Palette {
     static let gripLight = SKColor(red: 1.00, green: 0.80, blue: 0.38, alpha: 1)
     static let gripGlow = SKColor(red: 1.00, green: 0.62, blue: 0.22, alpha: 0.35)
 
+    static let water = SKColor(red: 0.22, green: 0.58, blue: 0.98, alpha: 0.92)
+    static let waterLight = SKColor(red: 0.62, green: 0.86, blue: 1.00, alpha: 1)
+    static let sand = SKColor(red: 0.98, green: 0.84, blue: 0.54, alpha: 1)
+    static let sandDark = SKColor(red: 0.85, green: 0.66, blue: 0.36, alpha: 1)
+
     // Characters and pickups
     static let stickman = SKColor(red: 0.98, green: 0.97, blue: 0.95, alpha: 1)
     static let crashed = SKColor(red: 1.00, green: 0.38, blue: 0.33, alpha: 1)

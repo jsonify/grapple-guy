@@ -110,6 +110,52 @@
     ]
   },
   {
+    "id": "fairway",
+    "width": 650,
+    "elements": [
+      {"type": "solid", "rect": [0, -40, 650, 40]},
+      {"type": "grapple", "rect": [245, 620, 160, 40]}
+    ]
+  },
+  {
+    "id": "pool-roof",
+    "width": 650,
+    "elements": [
+      {"type": "solid", "rect": [0, -40, 170, 40]},
+      {"type": "solid", "rect": [480, -40, 170, 40]},
+      {"type": "solid", "rect": [170, -90, 310, 50]},
+      {"type": "water", "rect": [170, -40, 310, 40]},
+      {"type": "grapple", "rect": [245, 640, 160, 40]}
+    ]
+  },
+  {
+    "id": "river-gap",
+    "width": 650,
+    "elements": [
+      {"type": "water", "rect": [0, -420, 650, 220]},
+      {"type": "grapple", "rect": [245, 640, 160, 40]}
+    ]
+  },
+  {
+    "id": "sand-roof",
+    "width": 650,
+    "elements": [
+      {"type": "solid", "rect": [0, -40, 180, 40]},
+      {"type": "sand", "rect": [180, -40, 290, 40]},
+      {"type": "solid", "rect": [470, -40, 180, 40]},
+      {"type": "grapple", "rect": [245, 620, 160, 40]}
+    ]
+  },
+  {
+    "id": "bunker-island",
+    "width": 650,
+    "elements": [
+      {"type": "sand", "rect": [150, -40, 350, 40]},
+      {"type": "gem", "at": [325, 260]},
+      {"type": "grapple", "rect": [245, 660, 160, 40]}
+    ]
+  },
+  {
     "id": "finish",
     "width": 600,
     "elements": [

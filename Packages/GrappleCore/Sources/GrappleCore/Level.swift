@@ -15,6 +15,10 @@ public struct Level: Codable, Sendable {
     public var gems: [Vec2]
     /// Sorted left to right.
     public var checkpoints: [Checkpoint]
+    /// Water hazards: entering one costs a penalty stroke (issue #17).
+    public var water: [AABB]
+    /// Each attempt picks a steady horizontal wind in -windRange…windRange (points/s²); 0 = calm.
+    public var windRange: Double
     public var surfaces: [Surface]
     public var spawn: Vec2
     /// Falling below this height is a crash.
@@ -23,7 +27,10 @@ public struct Level: Codable, Sendable {
     public var finishX: Double
 
     public init(surfaces: [Surface], spawn: Vec2, killY: Double, finishX: Double, name: String = "",
-                par: Int = 0, gems: [Vec2] = [], checkpoints: [Checkpoint] = []) {
+                par: Int = 0, gems: [Vec2] = [], checkpoints: [Checkpoint] = [],
+                water: [AABB] = [], windRange: Double = 0) {
+        self.water = water
+        self.windRange = windRange
         self.name = name
         self.par = par
         self.gems = gems

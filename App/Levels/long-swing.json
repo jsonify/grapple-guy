@@ -2,6 +2,7 @@
   "name": "Long Swing",
   "par": 5,
   "killY": -500,
+  "wind": 160,
   "chunks": [
     {"id": "start"},
     {"id": "ceiling"},
