@@ -24,7 +24,7 @@ struct ContentView: View {
 
             HStack(alignment: .top, spacing: 8) {
                 if showTuning {
-                    TuningPanel(tuning: $tuning)
+                    TuningPanel(tuning: $tuning, onSoundCheck: { scene.soundCheck() })
                 }
                 Button {
                     scene.restartLevel()

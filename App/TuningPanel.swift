@@ -5,7 +5,10 @@ import GrappleCore
 /// Live sliders for every feel parameter (issue #9). Changes apply immediately.
 struct TuningPanel: View {
     @Binding var tuning: Tuning
+    /// Plays a test sound and returns a description of the audio setup.
+    var onSoundCheck: () -> String = { "" }
     @State private var copied = false
+    @State private var soundReport: String?
 
     var body: some View {
         ScrollView {
@@ -34,7 +37,9 @@ struct TuningPanel: View {
                 slider("Gem pickup radius", $tuning.gemPickupRadius, 10...120)
                 slider("Flip chance", $tuning.flipChance, 0...1)
                 slider("Flip min speed", $tuning.flipMinSpeed, 0...2000)
-                slider("Flip duration (s)", $tuning.flipDuration, 0.2...1.5)
+                slider("Speed per spin/sec", $tuning.spinSpeedPerRotation, 200...3000)
+                slider("Min spins/sec", $tuning.spinMinRotations, 0.5...3)
+                slider("Max spins/sec", $tuning.spinMaxRotations, 1...6)
                 slider("Limb stiffness", $tuning.limbStiffness, 0...40)
                 slider("Limb damping", $tuning.limbDamping, 0...10)
                 slider("Hit-stop (s)", $tuning.hitStopSeconds, 0...0.4)
@@ -43,6 +48,14 @@ struct TuningPanel: View {
                 slider("Screen shake", $tuning.screenShake, 0...50)
                 slider("Crash impact speed", $tuning.crashImpactSpeed, 200...4000)
                 slider("Surface friction", $tuning.surfaceFriction, 0...20)
+
+                Button("Sound check") { soundReport = onSoundCheck() }
+                    .buttonStyle(.bordered)
+                if let soundReport {
+                    Text(soundReport)
+                        .font(.caption.monospaced())
+                        .textSelection(.enabled)
+                }
 
                 HStack {
                     Button("Reset") { tuning = .default }

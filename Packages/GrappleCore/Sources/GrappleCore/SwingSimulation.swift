@@ -53,6 +53,8 @@ public final class SwingSimulation {
     public private(set) var ragdoll: Ragdoll
     public private(set) var elapsed: Double = 0
     private var accumulator: Double = 0
+    /// True while the torso touched a surface during the last step.
+    public private(set) var isTouchingSurface = false
     /// Drives cosmetic randomness (flips); seeded so tests are repeatable.
     private var random: SeededRandom
     /// How long the current rope has been held.
@@ -194,7 +196,7 @@ public final class SwingSimulation {
         return boosted
     }
 
-    /// Spider-Man style: a fast upward release sometimes flips; a boosted one always front-flips.
+    /// Spider-Man style: a fast upward release sometimes starts a spin; a boosted one always front-spins.
     /// Purely cosmetic: only the ragdoll rotates.
     private func maybeFlip(boosted: Bool) {
         guard velocity.length >= tuning.flipMinSpeed else { return }
@@ -202,7 +204,7 @@ public final class SwingSimulation {
         let front = boosted || Bool.random(using: &random)
         let travel: Double = velocity.x >= 0 ? 1 : -1
         // Moving right, a front flip turns clockwise (-1) and a back flip counter-clockwise (+1).
-        ragdoll.startFlip(direction: front ? -travel : travel, duration: tuning.flipDuration)
+        ragdoll.startSpin(direction: front ? -travel : travel)
     }
 
     /// Changes rope length by `delta` (negative reels in), clamped to [minRopeLength, ropeRange].
@@ -268,8 +270,22 @@ public final class SwingSimulation {
     @discardableResult
     public func step(_ dt: Double) -> SimEvent? {
         let event = stepTorso(dt)
-        ragdoll.step(dt: dt, torso: position, velocity: velocity, ropeAnchor: rope?.anchor, level: level, tuning: tuning)
+        ragdoll.step(dt: dt, torso: position, velocity: velocity, ropeAnchor: rope?.anchor, level: level, tuning: tuning,
+                     spinRate: updateSpin())
         return event
+    }
+
+    /// Spins last while flying free: grabbing a rope, touching a surface, crashing or finishing ends them.
+    /// Faster flight spins faster, so long fast flights get several rotations.
+    private func updateSpin() -> Double {
+        guard ragdoll.isSpinning else { return 0 }
+        guard state == .playing, rope == nil, !isTouchingSurface else {
+            ragdoll.stopSpin()
+            return 0
+        }
+        let rotationsPerSecond = min(max(velocity.length / max(1, tuning.spinSpeedPerRotation), tuning.spinMinRotations),
+                                     tuning.spinMaxRotations)
+        return rotationsPerSecond * 2 * .pi
     }
 
     private func stepTorso(_ dt: Double) -> SimEvent? {
@@ -332,6 +348,7 @@ public final class SwingSimulation {
 
     private func resolveCollisions(_ dt: Double) -> SimEvent? {
         let radius = tuning.torsoRadius
+        isTouchingSurface = false
         for surface in level.surfaces {
             var contact = surface.bounds.closestPoint(to: position)
             let offset = position - contact
@@ -349,6 +366,7 @@ public final class SwingSimulation {
             }
 
             if -velocity.dot(normal) > tuning.crashImpactSpeed { return crash() }
+            isTouchingSurface = true
 
             position = contact + normal * radius
             let normalSpeed = velocity.dot(normal)

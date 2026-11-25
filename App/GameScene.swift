@@ -408,6 +408,11 @@ final class GameScene: SKScene {
         ]))
     }
 
+    /// For the Tune panel: plays a sound and reports what the audio system says.
+    func soundCheck() -> String {
+        feedback.soundCheck()
+    }
+
     /// Restarts the whole level (the ↺ button, or tapping after finishing).
     func restartLevel() {
         activeTouch = nil

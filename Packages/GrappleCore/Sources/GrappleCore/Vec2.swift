@@ -25,6 +25,8 @@ public struct Vec2: Equatable, Hashable, Codable, Sendable {
     public var perpendicular: Vec2 { Vec2(-y, x) }
 
     public func dot(_ o: Vec2) -> Double { x * o.x + y * o.y }
+    /// z of the 3D cross product: positive when `o` is counter-clockwise from `self`.
+    public func cross(_ o: Vec2) -> Double { x * o.y - y * o.x }
     public func distance(to o: Vec2) -> Double { (self - o).length }
 
     /// Rotated counter-clockwise by `radians`.

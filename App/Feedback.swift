@@ -23,10 +23,11 @@ final class Feedback {
     private let notification = UINotificationFeedbackGenerator()
 
     init() {
-        // Ambient: respects the silent switch and mixes with the player's own music.
+        // Playback (not ambient) so sound works even with the silent switch on, while we chase
+        // missing audio; mixWithOthers keeps the player's own music playing.
         let session = AVAudioSession.sharedInstance()
         do {
-            try session.setCategory(.ambient, options: [.mixWithOthers])
+            try session.setCategory(.playback, options: [.mixWithOthers])
             try session.setActive(true)
         } catch {
             print("Feedback: audio session setup failed: \(error)")
@@ -46,10 +47,28 @@ final class Feedback {
         prepare()
     }
 
-    func play(_ sound: Sound) {
-        guard let pool = players[sound], let player = pool.first(where: { !$0.isPlaying }) ?? pool.first else { return }
+    @discardableResult
+    func play(_ sound: Sound) -> Bool {
+        guard let pool = players[sound], let player = pool.first(where: { !$0.isPlaying }) ?? pool.first else { return false }
         player.currentTime = 0
-        player.play()
+        return player.play()
+    }
+
+    /// Plays a sound and describes the audio setup, for the Tune panel's sound check.
+    func soundCheck() -> String {
+        let played = play(.finish)
+        let session = AVAudioSession.sharedInstance()
+        let outputs = session.currentRoute.outputs.map(\.portName).joined(separator: ", ")
+        let loaded = players.count
+        var lines = [
+            "Played: \(played ? "yes" : "NO")",
+            "Sounds loaded: \(loaded)/\(Sound.allCases.count)",
+            "Volume: \(Int(session.outputVolume * 100))%",
+            "Output: \(outputs.isEmpty ? "none" : outputs)",
+            "Session: \(session.category.rawValue.replacingOccurrences(of: "AVAudioSessionCategory", with: ""))",
+        ]
+        if !missingSounds.isEmpty { lines.append("Missing: \(missingSounds.joined(separator: ", "))") }
+        return lines.joined(separator: "\n")
     }
 
     func haptic(_ haptic: Haptic) {

@@ -109,47 +109,63 @@ final class RagdollTests: XCTestCase {
     }
 }
 
-final class FlipTests: XCTestCase {
+final class SpinTests: XCTestCase {
     private let empty = Level(surfaces: [], spawn: .zero, killY: -1e9, finishX: .infinity)
     private let dt = 1.0 / 120.0
 
-    func testFlipTurnsBodyUpsideDownHalfwayAndBackUpright() {
+    func testSpinKeepsRotatingAtTheGivenRate() {
         var ragdoll = Ragdoll(torso: .zero)
-        ragdoll.startFlip(direction: -1, duration: 0.5)
-        for _ in 0..<30 {  // halfway
-            ragdoll.step(dt: dt, torso: .zero, velocity: .zero, ropeAnchor: nil, level: empty, tuning: .default)
+        ragdoll.startSpin(direction: -1)
+        // One rotation per second for 0.5 s: half a turn, upside down.
+        for _ in 0..<60 {
+            ragdoll.step(dt: dt, torso: .zero, velocity: .zero, ropeAnchor: nil, level: empty, tuning: .default, spinRate: 2 * .pi)
         }
-        XCTAssertTrue(ragdoll.isFlipping)
-        XCTAssertLessThan(ragdoll.up.y, -0.9, "body should be upside down halfway through")
+        XCTAssertTrue(ragdoll.isSpinning)
+        XCTAssertLessThan(ragdoll.up.y, -0.99)
         XCTAssertLessThan(ragdoll[.head].y, ragdoll[.pelvis].y)
-        for _ in 0..<40 {
-            ragdoll.step(dt: dt, torso: .zero, velocity: .zero, ropeAnchor: nil, level: empty, tuning: .default)
+        // Another 0.5 s: full turn, still spinning (it doesn't stop on its own).
+        for _ in 0..<60 {
+            ragdoll.step(dt: dt, torso: .zero, velocity: .zero, ropeAnchor: nil, level: empty, tuning: .default, spinRate: 2 * .pi)
         }
-        XCTAssertFalse(ragdoll.isFlipping)
-        XCTAssertGreaterThan(ragdoll.up.y, 0.9)
+        XCTAssertTrue(ragdoll.isSpinning)
+        XCTAssertGreaterThan(ragdoll.up.y, 0.99)
     }
 
-    func testCatchingRopeEndsFlip() {
+    func testStoppingUpsideDownRotatesBackUprightWithoutSnapping() {
         var ragdoll = Ragdoll(torso: .zero)
-        ragdoll.startFlip(direction: 1, duration: 0.5)
+        ragdoll.startSpin(direction: 1)
+        for _ in 0..<55 {  // just short of half a turn
+            ragdoll.step(dt: dt, torso: .zero, velocity: .zero, ropeAnchor: nil, level: empty, tuning: .default, spinRate: 2 * .pi)
+        }
+        ragdoll.stopSpin()
+        var previousUp = ragdoll.up
+        for _ in 0..<120 {
+            ragdoll.step(dt: dt, torso: .zero, velocity: .zero, ropeAnchor: nil, level: empty, tuning: .default)
+            XCTAssertGreaterThan(ragdoll.up.dot(previousUp), 0.9, "no sudden jumps while settling")
+            previousUp = ragdoll.up
+        }
+        XCTAssertGreaterThan(ragdoll.up.y, 0.99)
+    }
+
+    func testCatchingRopeOrCrashingEndsSpin() {
+        var ragdoll = Ragdoll(torso: .zero)
+        ragdoll.startSpin(direction: 1)
         ragdoll.step(dt: dt, torso: .zero, velocity: .zero, ropeAnchor: Vec2(0, 500), level: empty, tuning: .default)
-        XCTAssertFalse(ragdoll.isFlipping)
-    }
-
-    func testCrashEndsFlip() {
-        var ragdoll = Ragdoll(torso: .zero)
-        ragdoll.startFlip(direction: 1, duration: 0.5)
+        XCTAssertFalse(ragdoll.isSpinning)
+        ragdoll.startSpin(direction: 1)
         ragdoll.goLimp()
-        XCTAssertFalse(ragdoll.isFlipping)
+        XCTAssertFalse(ragdoll.isSpinning)
     }
 
-    // MARK: Release triggers
+    // MARK: Simulation control
 
-    private func fastRelease(velocity: Vec2, chance: Double, seed: UInt64 = 1) -> SwingSimulation {
+    private func release(velocity: Vec2, chance: Double, seed: UInt64 = 1) -> SwingSimulation {
         var tuning = Tuning()
         tuning.flipChance = chance
         tuning.flipMinSpeed = 300
         tuning.releaseLift = 0
+        tuning.gravity = 0
+        tuning.airDrag = 0
         let sim = SwingSimulation(level: empty, tuning: tuning, seed: seed)
         sim.position = .zero
         sim.velocity = velocity
@@ -158,25 +174,60 @@ final class FlipTests: XCTestCase {
         return sim
     }
 
-    func testBoostedReleaseAlwaysFrontFlips() {
-        let sim = fastRelease(velocity: Vec2(600, 300), chance: 0)  // boosted: fast, 27° upward
-        XCTAssertTrue(sim.ragdoll.isFlipping)
-        XCTAssertEqual(sim.ragdoll.flipDirection, -1, "moving right, a front flip turns clockwise")
+    func testBoostedReleaseAlwaysFrontSpins() {
+        let sim = release(velocity: Vec2(600, 300), chance: 0)  // boosted: fast, 27° upward
+        XCTAssertEqual(sim.ragdoll.spinDirection, -1, "moving right, a front flip turns clockwise")
     }
 
-    func testUnboostedReleaseFlipsOnlyByChance() {
+    func testUnboostedReleaseSpinsOnlyByChance() {
         // 80° upward is outside the boost window.
-        XCTAssertFalse(fastRelease(velocity: Vec2(100, 600), chance: 0).ragdoll.isFlipping)
-        XCTAssertTrue(fastRelease(velocity: Vec2(100, 600), chance: 1).ragdoll.isFlipping)
+        XCTAssertFalse(release(velocity: Vec2(100, 600), chance: 0).ragdoll.isSpinning)
+        XCTAssertTrue(release(velocity: Vec2(100, 600), chance: 1).ragdoll.isSpinning)
     }
 
-    func testSlowReleaseNeverFlips() {
-        XCTAssertFalse(fastRelease(velocity: Vec2(50, 100), chance: 1).ragdoll.isFlipping)
+    func testSlowReleaseNeverSpins() {
+        XCTAssertFalse(release(velocity: Vec2(50, 100), chance: 1).ragdoll.isSpinning)
     }
 
-    func testSameSeedSameFlips() {
-        let a = (0..<20).map { fastRelease(velocity: Vec2(100, 600), chance: 0.5, seed: UInt64($0)).ragdoll.flipDirection }
-        let b = (0..<20).map { fastRelease(velocity: Vec2(100, 600), chance: 0.5, seed: UInt64($0)).ragdoll.flipDirection }
+    func testFasterFlightSpinsMoreInTheSameTime() {
+        func turns(speed: Double) -> Double {
+            let sim = release(velocity: Vec2(speed * 0.2, speed), chance: 1)
+            var total = 0.0
+            var previous = sim.ragdoll.up
+            for _ in 0..<60 {  // 0.5 s of free flight
+                sim.step(sim.fixedTimeStep)
+                total += abs(atan2(previous.cross(sim.ragdoll.up), previous.dot(sim.ragdoll.up)))
+                previous = sim.ragdoll.up
+            }
+            return total / (2 * .pi)
+        }
+        let slow = turns(speed: 800)    // clamped to the 1.2/s minimum: ~0.6 turns
+        let fast = turns(speed: 2700)   // 3/s: ~1.5 turns
+        XCTAssertEqual(slow, 0.6, accuracy: 0.1)
+        XCTAssertEqual(fast, 1.5, accuracy: 0.15)
+    }
+
+    func testSpinStopsWhenRopeAttaches() {
+        let ceiling = Surface(bounds: AABB(x: -5000, y: 3000, width: 10000, height: 50), isGrappleable: true)
+        var tuning = Tuning()
+        tuning.flipChance = 1
+        tuning.flipMinSpeed = 300
+        tuning.ropeTipSpeed = 1e9
+        let sim = SwingSimulation(level: Level(surfaces: [ceiling], spawn: .zero, killY: -1e9, finishX: .infinity), tuning: tuning)
+        sim.velocity = Vec2(100, 800)
+        sim.attachRope(anchor: Vec2(0, 800), length: 800)
+        sim.position = Vec2(0, 0)
+        sim.release()
+        XCTAssertTrue(sim.ragdoll.isSpinning)
+        sim.fireGrapple(toward: Vec2(0, 3000), range: 5000)
+        sim.step(sim.fixedTimeStep)
+        sim.step(sim.fixedTimeStep)
+        XCTAssertFalse(sim.ragdoll.isSpinning)
+    }
+
+    func testSameSeedSameSpins() {
+        let a = (0..<20).map { release(velocity: Vec2(100, 600), chance: 0.5, seed: UInt64($0)).ragdoll.spinDirection }
+        let b = (0..<20).map { release(velocity: Vec2(100, 600), chance: 0.5, seed: UInt64($0)).ragdoll.spinDirection }
         XCTAssertEqual(a, b)
         XCTAssertTrue(a.contains(nil) && (a.contains(1) || a.contains(-1)), "chance 0.5 should give a mix")
     }

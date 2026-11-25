@@ -29,12 +29,15 @@ public struct Tuning: Equatable, Codable, Sendable {
     public var limbStiffness: Double = 10
     /// Fraction of limb speed lost per second.
     public var limbDamping: Double = 1.5
-    /// Chance (0…1) of a flip when letting go while flying upward fast. Boosted releases always flip.
+    /// Chance (0…1) of spinning when letting go while flying upward fast. Boosted releases always spin.
     public var flipChance: Double = 0.6
-    /// Minimum speed at release for a flip.
+    /// Minimum speed at release to start spinning.
     public var flipMinSpeed: Double = 700
-    /// How long one full flip takes, in seconds.
-    public var flipDuration: Double = 0.55
+    /// Spinning keeps going while airborne; its rate is speed ÷ this, in rotations per second…
+    public var spinSpeedPerRotation: Double = 900
+    /// …clamped to this range (rotations per second).
+    public var spinMinRotations: Double = 1.2
+    public var spinMaxRotations: Double = 3.5
     /// Holding the rope this long (seconds) starts retracting it, so quick taps still swing.
     public var retractDelay: Double = 0.2
     /// Rope length retracted per second while holding.
