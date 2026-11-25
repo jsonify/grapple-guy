@@ -133,11 +133,11 @@ final class GameScene: SKScene {
 
     private func render(dt: Double) {
         let anchor = simulation.rope?.anchor
-        stickman.update(torso: simulation.position, velocity: simulation.velocity, ropeAnchor: anchor, dt: dt)
+        stickman.update(ragdoll: simulation.ragdoll)
 
         if let anchor {
             let path = CGMutablePath()
-            path.move(to: CGPoint(stickman.handPosition))
+            path.move(to: CGPoint(simulation.ragdoll.ropeHand))
             path.addLine(to: CGPoint(anchor))
             ropeNode.path = path
             ropeNode.alpha = simulation.isRopeTaut ? 1 : 0.5
@@ -147,10 +147,12 @@ final class GameScene: SKScene {
 
         timerLabel.text = String(format: "%.2f", simulation.elapsed)
 
-        // Camera follows with look-ahead in the direction of travel.
-        let v = simulation.velocity
+        // Camera follows with look-ahead in the direction of travel; after a crash it follows the tumbling body.
+        let crashed = simulation.state == .crashed
+        let focus = crashed ? simulation.ragdoll[.pelvis] : simulation.position
+        let v = crashed ? Vec2.zero : simulation.velocity
         let lookAhead = Vec2(max(-450, min(450, v.x * 0.3)), max(-200, min(200, v.y * 0.15)))
-        let target = CGPoint(simulation.position + lookAhead + Vec2(0, cameraLift))
+        let target = CGPoint(focus + lookAhead + Vec2(0, cameraLift))
         let follow = CGFloat(dt > 0 ? 1 - exp(-5 * dt) : 1)
         cameraNode.position.x += (target.x - cameraNode.position.x) * follow
         cameraNode.position.y += (target.y - cameraNode.position.y) * follow

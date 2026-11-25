@@ -30,6 +30,8 @@ public final class SwingSimulation {
     public internal(set) var velocity: Vec2
     public internal(set) var rope: Rope?
     public private(set) var state: State = .playing
+    /// Visual body: limbs while alive, the whole figure after a crash.
+    public private(set) var ragdoll: Ragdoll
     public private(set) var elapsed: Double = 0
     private var accumulator: Double = 0
 
@@ -39,6 +41,7 @@ public final class SwingSimulation {
         self.fixedTimeStep = fixedTimeStep
         position = level.spawn
         velocity = .zero
+        ragdoll = Ragdoll(torso: level.spawn)
     }
 
     public var isRopeTaut: Bool {
@@ -53,6 +56,7 @@ public final class SwingSimulation {
         state = .playing
         elapsed = 0
         accumulator = 0
+        ragdoll.reset(torso: level.spawn)
     }
 
     /// Fires the rope toward a tapped world point. Returns the anchor, or nil on a miss.
@@ -134,6 +138,12 @@ public final class SwingSimulation {
     /// One fixed step. Exposed for tests.
     @discardableResult
     public func step(_ dt: Double) -> SimEvent? {
+        let event = stepTorso(dt)
+        ragdoll.step(dt: dt, torso: position, velocity: velocity, ropeAnchor: rope?.anchor, level: level, tuning: tuning)
+        return event
+    }
+
+    private func stepTorso(_ dt: Double) -> SimEvent? {
         guard state == .playing else { return nil }
         elapsed += dt
 
@@ -206,6 +216,7 @@ public final class SwingSimulation {
     private func crash() -> SimEvent {
         state = .crashed
         rope = nil
+        ragdoll.goLimp()
         return .crashed
     }
 }

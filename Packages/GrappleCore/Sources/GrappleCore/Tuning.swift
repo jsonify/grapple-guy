@@ -17,6 +17,10 @@ public struct Tuning: Equatable, Codable, Sendable {
     /// If the direct shot misses, rays are tried up to this many degrees either side of the aim.
     public var aimAssistAngleDegrees: Double = 18
     public var torsoRadius: Double = 16
+    /// How strongly arms and legs are pulled back toward their rest pose while alive (per second).
+    public var limbStiffness: Double = 10
+    /// Fraction of limb speed lost per second.
+    public var limbDamping: Double = 1.5
     /// Rope length change per point the holding finger slides along the rope (toward the stickman = shorter).
     public var reelRatio: Double = 1.5
     /// Letting go of a taut rope while moving at least this fast, heading upward within the angle window, boosts.
