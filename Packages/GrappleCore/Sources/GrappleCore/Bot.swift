@@ -26,8 +26,8 @@ public struct BotSkill: Equatable, Sendable {
         self.mistakeChance = mistakeChance
     }
 
-    public static let rookie = BotSkill(name: "Rookie Rita", reaction: 0.55, candidatePads: 2, holdOptions: [0.25, 0.6],
-                                        aimNoise: 60, timingNoise: 0.2, mistakeChance: 0.35)
+    public static let rookie = BotSkill(name: "Rookie Rita", reaction: 0.55, candidatePads: 3, holdOptions: [0.2, 0.5, 0.8],
+                                        aimNoise: 40, timingNoise: 0.15, mistakeChance: 0.25)
     public static let steady = BotSkill(name: "Steady Sam", reaction: 0.35, candidatePads: 4, holdOptions: [0.1, 0.35, 0.6, 0.9],
                                         aimNoise: 25, timingNoise: 0.1, mistakeChance: 0.15)
     public static let pro = BotSkill(name: "Pro Pip", reaction: 0.2, candidatePads: 6, holdOptions: [0, 0.2, 0.4, 0.6, 0.8, 1.1],
@@ -49,6 +49,8 @@ public final class Bot {
 
     /// Plans scoring at or below this attach nowhere useful (missed, own pad, crash): don't spend a swing on them.
     static let hopeless = -9e5
+    /// Plans scoring at or below this end in a penalty or a fall.
+    static let unsafe = -1e5
 
     private enum Phase {
         case thinking(until: Double)
@@ -207,7 +209,8 @@ public final class Bot {
         let pads = sim.level.surfaces
             .filter { $0.isGrappleable }
             .map(\.bounds)
-            .filter { $0.center.x > here.x - 150 && $0.center.distance(to: here) <= ropeRange }
+            // Pads a little behind count too: swinging from one can still carry you forward.
+            .filter { $0.center.x > here.x - 500 && $0.center.distance(to: here) <= ropeRange }
             .sorted { $0.center.x > $1.center.x }  // farthest ahead first
             .prefix(stuck ? 12 : max(1, skill.candidatePads))
 
@@ -224,8 +227,10 @@ public final class Bot {
 
         scored.sort { $0.score > $1.score }
         var pick = 0
-        if scored.count > 1 && Double.random(in: 0..<1, using: &random) < skill.mistakeChance {
-            pick = Int.random(in: 1...min(2, scored.count - 1), using: &random)
+        // Mistakes only pick among other safe plans (never one that ends in water or a crash).
+        let safeCount = scored.filter { $0.score > Self.unsafe }.count
+        if safeCount > 1 && Double.random(in: 0..<1, using: &random) < skill.mistakeChance {
+            pick = Int.random(in: 1...min(2, safeCount - 1), using: &random)
         }
         var chosen = scored[pick].plan
         chosen.target = chosen.target + Vec2(Double.random(in: -skill.aimNoise...skill.aimNoise, using: &random),
@@ -258,12 +263,41 @@ public final class Bot {
             t += dt
         }
         lookahead.release()
+
+        // Fly on for the whole horizon. If the flight ends badly (water, out of bounds, crash) but passed
+        // somewhere another pad could have been grabbed, judge it from that point instead — the bot would
+        // grab on there. That's how rivers get crossed.
+        var lastGrabbable: Double?
         t = 0
-        while t < 1.4 && lookahead.state == .playing && lookahead.penalties == startPenalties {
+        while t < 2.5 && lookahead.state == .playing && lookahead.penalties == startPenalties {
             lookahead.step(dt)
             t += dt
+            if lookahead.isTouchingSurface && lookahead.velocity.length < 80 { break }
+            if t >= 0.25, Int((t / dt).rounded()) % 6 == 0, lookahead.state == .playing,
+               lookahead.penalties == startPenalties, canGrabAPadAhead(from: lookahead) {
+                lastGrabbable = Self.score(lookahead, startPenalties: startPenalties)
+            }
         }
-        return Self.score(lookahead, startPenalties: startPenalties)
+        let final = Self.score(lookahead, startPenalties: startPenalties)
+        if final <= Self.unsafe, let lastGrabbable { return lastGrabbable }
+        return final
+    }
+
+    /// Whether some pad ahead (or just behind) is in reach with a clear line from `s`'s position.
+    private func canGrabAPadAhead(from s: SwingSimulation) -> Bool {
+        let here = s.position
+        for surface in s.level.surfaces where surface.isGrappleable {
+            let pad = surface.bounds
+            guard pad.center.x > here.x - 100, pad.center.distance(to: here) <= ropeRange,
+                  pad.center.distance(to: here) > 150 else { continue }
+            let direction = (pad.center - here).normalized
+            if let hit = s.level.raycast(origin: here, direction: direction, maxDistance: ropeRange),
+               s.level.surfaces[hit.surfaceIndex].isGrappleable,
+               hit.point.x >= pad.lower.x - 2, hit.point.x <= pad.upper.x + 2 {
+                return true
+            }
+        }
+        return false
     }
 
     static func score(_ s: SwingSimulation, startPenalties: Int) -> Double {
