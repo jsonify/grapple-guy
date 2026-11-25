@@ -11,6 +11,7 @@ struct TuningPanel: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 10) {
                 slider("Gravity", $tuning.gravity, 200...5000)
+                slider("Swing gravity ×", $tuning.swingGravityMultiplier, 0.5...4)
                 slider("Air drag", $tuning.airDrag, 0...2)
                 slider("Max speed", $tuning.maxSpeed, 500...6000)
                 slider("Rope range", $tuning.ropeRange, 200...1500)
@@ -18,6 +19,11 @@ struct TuningPanel: View {
                 slider("Attach tug speed", $tuning.attachTugSpeed, 0...2000)
                 slider("Assist radius", $tuning.aimAssistRadius, 0...400)
                 slider("Assist angle (°)", $tuning.aimAssistAngleDegrees, 0...45)
+                slider("Reel ratio", $tuning.reelRatio, 0...5)
+                slider("Boost min speed", $tuning.boostMinSpeed, 0...2000)
+                slider("Boost impulse", $tuning.boostImpulse, 0...1500)
+                slider("Boost min angle (°)", $tuning.boostMinAngleDegrees, 0...90)
+                slider("Boost max angle (°)", $tuning.boostMaxAngleDegrees, 0...90)
                 slider("Crash impact speed", $tuning.crashImpactSpeed, 200...4000)
                 slider("Surface friction", $tuning.surfaceFriction, 0...20)
 

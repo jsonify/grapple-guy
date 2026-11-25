@@ -1,7 +1,9 @@
 /// Every feel parameter lives here so the debug overlay can change it live.
 /// Units: world points and seconds.
 public struct Tuning: Equatable, Codable, Sendable {
-    public var gravity: Double = 1800
+    public var gravity: Double = 1000
+    /// Gravity is multiplied by this while the rope is taut: snappier swings without shortening airtime.
+    public var swingGravityMultiplier: Double = 1.6
     /// Fraction of velocity lost per second.
     public var airDrag: Double = 0.1
     public var maxSpeed: Double = 2600
@@ -15,6 +17,14 @@ public struct Tuning: Equatable, Codable, Sendable {
     /// If the direct shot misses, rays are tried up to this many degrees either side of the aim.
     public var aimAssistAngleDegrees: Double = 18
     public var torsoRadius: Double = 16
+    /// Rope length change per point the holding finger slides along the rope (toward the stickman = shorter).
+    public var reelRatio: Double = 1.5
+    /// Letting go of a taut rope while moving at least this fast, heading upward within the angle window, boosts.
+    public var boostMinSpeed: Double = 500
+    public var boostImpulse: Double = 350
+    /// Boost window, in degrees above horizontal.
+    public var boostMinAngleDegrees: Double = 5
+    public var boostMaxAngleDegrees: Double = 75
     /// Hitting a surface faster than this (along its normal) is a crash.
     public var crashImpactSpeed: Double = 1100
     /// Fraction of sliding speed lost per second while touching a surface.

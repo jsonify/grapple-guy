@@ -1,3 +1,5 @@
+import Foundation
+
 /// Something the presentation layer should react to.
 public enum SimEvent: Equatable, Sendable {
     case crashed
@@ -64,8 +66,37 @@ public final class SwingSimulation {
         return anchor
     }
 
-    public func release() {
+    /// Lets go of the rope. Returns true if the timing earned a release boost (issue #15).
+    @discardableResult
+    public func release() -> Bool {
+        guard rope != nil else { return false }
+        let wasTaut = isRopeTaut
         rope = nil
+        guard state == .playing, wasTaut, velocity.y > 0 else { return false }
+        let speed = velocity.length
+        guard speed >= tuning.boostMinSpeed else { return false }
+        let angle = atan2(velocity.y, abs(velocity.x)) * 180 / .pi
+        guard angle >= tuning.boostMinAngleDegrees, angle <= tuning.boostMaxAngleDegrees else { return false }
+        velocity = velocity + velocity / speed * tuning.boostImpulse
+        clampSpeed()
+        return true
+    }
+
+    /// Changes rope length by `delta` (negative reels in), clamped to [minRopeLength, ropeRange] (issue #14).
+    /// On a taut rope, angular momentum is conserved: reeling in speeds the swing up, reeling out slows it.
+    public func reel(by delta: Double) {
+        guard state == .playing, var current = rope else { return }
+        let oldLength = current.length
+        let newLength = min(max(oldLength + delta, tuning.minRopeLength), tuning.ropeRange)
+        guard newLength != oldLength else { return }
+        let wasTaut = isRopeTaut
+        current.length = newLength
+        rope = current
+        guard wasTaut else { return }
+        let n = (position - current.anchor).normalized
+        let t = n.perpendicular
+        velocity = n * velocity.dot(n) + t * (velocity.dot(t) * oldLength / newLength)
+        clampSpeed()
     }
 
     /// Without this, a rope fired while standing (or moving slowly) is slack and nothing happens.
@@ -99,7 +130,8 @@ public final class SwingSimulation {
         guard state == .playing else { return nil }
         elapsed += dt
 
-        velocity.y -= tuning.gravity * dt
+        let gravityScale = isRopeTaut ? tuning.swingGravityMultiplier : 1
+        velocity.y -= tuning.gravity * gravityScale * dt
         velocity = velocity * max(0, 1 - tuning.airDrag * dt)
         position = position + velocity * dt
 

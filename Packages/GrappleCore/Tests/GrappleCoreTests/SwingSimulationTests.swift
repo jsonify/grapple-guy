@@ -10,6 +10,7 @@ final class SwingSimulationTests: XCTestCase {
         var t = Tuning()
         t.airDrag = 0
         t.maxSpeed = 1e6
+        t.swingGravityMultiplier = 1
         return t
     }
 
@@ -58,6 +59,85 @@ final class SwingSimulationTests: XCTestCase {
         }
         let expected = (2 * tuning.gravity * length).squareRoot()
         XCTAssertEqual(fastest, expected, accuracy: expected * 0.05)
+    }
+
+    func testSwingGravityMultiplierSpeedsUpSwing() {
+        var tuning = noDrag()
+        tuning.swingGravityMultiplier = 2
+        let sim = SwingSimulation(level: emptyLevel(), tuning: tuning)
+        sim.position = Vec2(400, 500)
+        sim.attachRope(anchor: Vec2(0, 500), length: 400)
+        var fastest = 0.0
+        for _ in 0..<240 {
+            sim.step(sim.fixedTimeStep)
+            fastest = max(fastest, sim.velocity.length)
+        }
+        let expected = (2 * 2 * tuning.gravity * 400).squareRoot()
+        XCTAssertEqual(fastest, expected, accuracy: expected * 0.05)
+    }
+
+    // MARK: Reel (#14)
+
+    private func tautSwing(velocity: Vec2) -> SwingSimulation {
+        let sim = SwingSimulation(level: emptyLevel(), tuning: noDrag())
+        sim.position = .zero
+        sim.velocity = velocity
+        sim.attachRope(anchor: Vec2(0, 500), length: 500)
+        return sim
+    }
+
+    func testReelInShortensRopeAndConservesAngularMomentum() {
+        let sim = tautSwing(velocity: Vec2(600, 0))
+        sim.reel(by: -100)
+        XCTAssertEqual(sim.rope?.length ?? 0, 400, accuracy: 1e-9)
+        XCTAssertEqual(sim.velocity.x, 750, accuracy: 1e-6)
+    }
+
+    func testReelClampsToLimits() {
+        let sim = tautSwing(velocity: .zero)
+        sim.reel(by: -10_000)
+        XCTAssertEqual(sim.rope?.length ?? 0, sim.tuning.minRopeLength, accuracy: 1e-9)
+        sim.reel(by: 10_000)
+        XCTAssertEqual(sim.rope?.length ?? 0, sim.tuning.ropeRange, accuracy: 1e-9)
+    }
+
+    func testReelOnSlackRopeKeepsVelocity() {
+        let sim = tautSwing(velocity: Vec2(600, 0))
+        sim.position = Vec2(0, 200)  // well inside rope length
+        sim.reel(by: -50)
+        XCTAssertEqual(sim.velocity, Vec2(600, 0))
+    }
+
+    func testReelWithoutRopeDoesNothing() {
+        let sim = SwingSimulation(level: emptyLevel())
+        sim.reel(by: -100)
+        XCTAssertNil(sim.rope)
+    }
+
+    // MARK: Release boost (#15)
+
+    func testWellTimedReleaseBoosts() {
+        let sim = tautSwing(velocity: Vec2(600, 300))
+        let before = sim.velocity.length
+        XCTAssertTrue(sim.release())
+        XCTAssertEqual(sim.velocity.length, before + sim.tuning.boostImpulse, accuracy: 1e-6)
+        XCTAssertNil(sim.rope)
+    }
+
+    func testReleaseWhileFallingDoesNotBoost() {
+        let sim = tautSwing(velocity: Vec2(600, -300))
+        XCTAssertFalse(sim.release())
+        XCTAssertEqual(sim.velocity, Vec2(600, -300))
+    }
+
+    func testSlowReleaseDoesNotBoost() {
+        XCTAssertFalse(tautSwing(velocity: Vec2(100, 50)).release())
+    }
+
+    func testReleaseFromSlackRopeDoesNotBoost() {
+        let sim = tautSwing(velocity: Vec2(600, 300))
+        sim.position = Vec2(0, 200)
+        XCTAssertFalse(sim.release())
     }
 
     func testReleaseDetachesRope() {
