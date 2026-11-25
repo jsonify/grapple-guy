@@ -111,6 +111,26 @@ final class SwingSimulationTests: XCTestCase {
         XCTAssertEqual(sim.rope?.length ?? 0, 500, accuracy: 1e-9)
     }
 
+    func testGrappleFromStandingLiftsOffAndSwings() {
+        let floor = Surface(bounds: AABB(x: -200, y: -40, width: 500, height: 40), isGrappleable: false)
+        let block = Surface(bounds: AABB(x: 300, y: 560, width: 160, height: 40), isGrappleable: true)
+        let sim = SwingSimulation(level: Level(surfaces: [floor, block], spawn: Vec2(0, 16), killY: -1e9, finishX: .infinity))
+        for _ in 0..<30 { sim.step(sim.fixedTimeStep) }  // settle on the floor
+        XCTAssertNotNil(sim.fireGrapple(toward: Vec2(380, 560)))
+        for _ in 0..<40 { sim.step(sim.fixedTimeStep) }  // 1/3 s
+        XCTAssertEqual(sim.state, .playing)
+        XCTAssertGreaterThan(sim.position.y, 100, "a shot from standing should lift the stickman off the platform")
+        XCTAssertGreaterThan(sim.position.x, 50, "and carry him toward the anchor")
+    }
+
+    func testAttachTugDoesNotSlowFastSwings() {
+        let ceiling = Surface(bounds: AABB(x: -2000, y: 500, width: 4000, height: 50), isGrappleable: true)
+        let sim = SwingSimulation(level: emptyLevel(surfaces: [ceiling]))
+        sim.velocity = Vec2(0, 2000)
+        sim.fireGrapple(toward: Vec2(0, 1000))
+        XCTAssertEqual(sim.velocity.y, 2000, accuracy: 1e-9)
+    }
+
     func testResetRestoresSpawn() {
         let sim = SwingSimulation(level: emptyLevel(killY: -10))
         sim.update(deltaTime: 0.25)

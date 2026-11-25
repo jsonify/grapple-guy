@@ -12,13 +12,17 @@ final class GameScene: SKScene {
     private let ropeNode = SKShapeNode()
     private let statusLabel = SKLabelNode(fontNamed: "Menlo-Bold")
     private let timerLabel = SKLabelNode(fontNamed: "Menlo")
+    private let hintLabel = SKLabelNode(fontNamed: "Menlo-Bold")
+    private var hasAttachedOnce = false
 
     private var lastUpdate: TimeInterval?
     private var activeTouch: UITouch?
     private var isBuilt = false
 
     /// How many world points tall the view shows.
-    private let visibleHeight: CGFloat = 1100
+    private let visibleHeight: CGFloat = 1400
+    /// The camera sits this far above the stickman so the grappleable ceiling stays in view.
+    private let cameraLift: Double = 300
 
     var tuning: Tuning {
         get { simulation.tuning }
@@ -64,8 +68,17 @@ final class GameScene: SKScene {
         timerLabel.verticalAlignmentMode = .top
         cameraNode.addChild(timerLabel)
 
+        hintLabel.fontSize = 22
+        hintLabel.fontColor = Palette.stickman
+        hintLabel.numberOfLines = 2
+        hintLabel.horizontalAlignmentMode = .center
+        hintLabel.verticalAlignmentMode = .center
+        hintLabel.text = "Touch & hold near an ORANGE block to swing\nLet go to fly · reach the GREEN line"
+        hintLabel.run(.repeatForever(.sequence([.fadeAlpha(to: 0.45, duration: 0.8), .fadeAlpha(to: 1, duration: 0.8)])))
+        cameraNode.addChild(hintLabel)
+
         layoutForSize()
-        cameraNode.position = CGPoint(simulation.position)
+        cameraNode.position = CGPoint(simulation.position + Vec2(0, cameraLift))
         render(dt: 0)
     }
 
@@ -80,6 +93,7 @@ final class GameScene: SKScene {
         // HUD children of the camera use screen points.
         timerLabel.position = CGPoint(x: -size.width / 2 + 24, y: size.height / 2 - 16)
         statusLabel.position = CGPoint(x: 0, y: size.height * 0.15)
+        hintLabel.position = CGPoint(x: 0, y: -size.height * 0.32)
     }
 
     private func buildLevel() {
@@ -136,7 +150,7 @@ final class GameScene: SKScene {
         // Camera follows with look-ahead in the direction of travel.
         let v = simulation.velocity
         let lookAhead = Vec2(max(-450, min(450, v.x * 0.3)), max(-200, min(200, v.y * 0.15)))
-        let target = CGPoint(simulation.position + lookAhead)
+        let target = CGPoint(simulation.position + lookAhead + Vec2(0, cameraLift))
         let follow = CGFloat(dt > 0 ? 1 - exp(-5 * dt) : 1)
         cameraNode.position.x += (target.x - cameraNode.position.x) * follow
         cameraNode.position.y += (target.y - cameraNode.position.y) * follow
@@ -156,6 +170,10 @@ final class GameScene: SKScene {
         let point = touch.location(in: self)
         if simulation.fireGrapple(toward: Vec2(point)) == nil {
             showMissMarker(at: point)
+        } else if !hasAttachedOnce {
+            hasAttachedOnce = true
+            hintLabel.removeAllActions()
+            hintLabel.run(.fadeOut(withDuration: 0.3))
         }
     }
 
@@ -177,7 +195,7 @@ final class GameScene: SKScene {
         simulation.reset()
         stickman.setCrashed(false)
         statusLabel.text = nil
-        cameraNode.position = CGPoint(simulation.position)
+        cameraNode.position = CGPoint(simulation.position + Vec2(0, cameraLift))
     }
 
     private func showMissMarker(at point: CGPoint) {

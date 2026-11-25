@@ -38,8 +38,11 @@ final class StickmanNode: SKNode {
         if up == .zero { up = Vec2(0, 1) }
         let down = -up
 
-        let shoulder = c + up * 13
-        let hip = c - up * 13
+        // The collider is a small circle at the torso; draw the figure raised so its feet,
+        // not its waist, rest on the ground.
+        let body = c + up * 18
+        let shoulder = body + up * 13
+        let hip = body - up * 13
         let headCenter = shoulder + up * 12
         let headRadius = 9.0
 

@@ -60,11 +60,21 @@ public final class SwingSimulation {
               let anchor = GrappleTargeting.findAnchor(from: position, aimAt: target, in: level, tuning: tuning)
         else { return nil }
         attachRope(anchor: anchor, length: position.distance(to: anchor))
+        applyAttachTug(toward: anchor)
         return anchor
     }
 
     public func release() {
         rope = nil
+    }
+
+    /// Without this, a rope fired while standing (or moving slowly) is slack and nothing happens.
+    func applyAttachTug(toward anchor: Vec2) {
+        let direction = (anchor - position).normalized
+        let along = velocity.dot(direction)
+        if along < tuning.attachTugSpeed {
+            velocity = velocity + direction * (tuning.attachTugSpeed - along)
+        }
     }
 
     func attachRope(anchor: Vec2, length: Double) {

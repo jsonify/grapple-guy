@@ -8,8 +8,10 @@ public struct Tuning: Equatable, Codable, Sendable {
     /// Furthest a rope shot can reach.
     public var ropeRange: Double = 750
     public var minRopeLength: Double = 40
+    /// On attaching, speed toward the anchor is topped up to at least this, so a shot always yanks you into a swing.
+    public var attachTugSpeed: Double = 750
     /// Taps within this distance of a grappleable surface snap to it.
-    public var aimAssistRadius: Double = 120
+    public var aimAssistRadius: Double = 180
     /// If the direct shot misses, rays are tried up to this many degrees either side of the aim.
     public var aimAssistAngleDegrees: Double = 18
     public var torsoRadius: Double = 16

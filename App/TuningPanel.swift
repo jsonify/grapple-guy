@@ -15,6 +15,7 @@ struct TuningPanel: View {
                 slider("Max speed", $tuning.maxSpeed, 500...6000)
                 slider("Rope range", $tuning.ropeRange, 200...1500)
                 slider("Min rope length", $tuning.minRopeLength, 10...200)
+                slider("Attach tug speed", $tuning.attachTugSpeed, 0...2000)
                 slider("Assist radius", $tuning.aimAssistRadius, 0...400)
                 slider("Assist angle (°)", $tuning.aimAssistAngleDegrees, 0...45)
                 slider("Crash impact speed", $tuning.crashImpactSpeed, 200...4000)
