@@ -10,3 +10,6 @@ DerivedData/
 *.xcworkspace/
 !*.xcodeproj/project.xcworkspace/
 .DS_Store
+
+# Personal signing settings (team ID)
+Config/Local.xcconfig

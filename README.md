@@ -22,7 +22,15 @@ Generate the Xcode project, then open it:
 xcodegen && open GrappleGuy.xcodeproj
 ```
 
-In Xcode, set your team under **Signing & Capabilities** (and change the bundle ID from `com.example.grappleguy` if needed), pick your iPhone, and run.
+Set your signing team once in `Config/Local.xcconfig` (git-ignored, so it survives `xcodegen`):
+
+```
+DEVELOPMENT_TEAM = ABCDE12345
+```
+
+Your team ID is in Xcode under Settings → Accounts, or at developer.apple.com → Membership. The bundle ID defaults to `com.grappleguy` (in `Config/Signing.xcconfig`); override it in `Local.xcconfig` if needed. Then pick your iPhone and run.
+
+After pulling changes that add files, run `xcodegen` again (with Xcode closed, or reopen the project afterwards).
 
 Run the core tests:
 
