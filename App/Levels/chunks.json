@@ -64,6 +64,52 @@
     ]
   },
   {
+    "id": "high-block",
+    "width": 650,
+    "elements": [
+      {"type": "grapple", "rect": [245, 780, 160, 40]}
+    ]
+  },
+  {
+    "id": "low-block",
+    "width": 650,
+    "elements": [
+      {"type": "grapple", "rect": [245, 440, 160, 40]}
+    ]
+  },
+  {
+    "id": "gem-dive",
+    "width": 650,
+    "elements": [
+      {"type": "grapple", "rect": [245, 720, 160, 40]},
+      {"type": "gem", "at": [325, 140]}
+    ]
+  },
+  {
+    "id": "gem-sky",
+    "width": 650,
+    "elements": [
+      {"type": "grapple", "rect": [245, 700, 160, 40]},
+      {"type": "gem", "at": [560, 980]}
+    ]
+  },
+  {
+    "id": "long-gap",
+    "width": 900,
+    "elements": [
+      {"type": "grapple", "rect": [620, 800, 180, 40]}
+    ]
+  },
+  {
+    "id": "rest-platform",
+    "width": 650,
+    "elements": [
+      {"type": "solid", "rect": [150, -40, 350, 40]},
+      {"type": "checkpoint", "at": [325, 40]},
+      {"type": "grapple", "rect": [245, 720, 160, 40]}
+    ]
+  },
+  {
     "id": "finish",
     "width": 600,
     "elements": [

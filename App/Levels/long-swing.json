@@ -1,0 +1,29 @@
+{
+  "name": "Long Swing",
+  "par": 16,
+  "killY": -500,
+  "chunks": [
+    {"id": "start"},
+    {"id": "ceiling"},
+    {"id": "high-block"},
+    {"id": "low-block"},
+    {"id": "gem-dive"},
+    {"id": "high-block", "dy": 40},
+    {"id": "long-gap"},
+    {"id": "low-block", "dy": -30},
+    {"id": "gem-sky"},
+    {"id": "high-block", "dy": -20},
+    {"id": "rest-platform"},
+    {"id": "long-gap"},
+    {"id": "high-block", "dy": 60},
+    {"id": "gem-dive"},
+    {"id": "low-block", "dy": 20},
+    {"id": "long-gap", "dy": -40},
+    {"id": "gem-sky", "dy": 30},
+    {"id": "high-block"},
+    {"id": "long-gap"},
+    {"id": "low-block"},
+    {"id": "high-block", "dy": 80},
+    {"id": "finish"}
+  ]
+}

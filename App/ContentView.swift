@@ -3,7 +3,11 @@ import SwiftUI
 import GrappleCore
 
 struct ContentView: View {
-    @State private var scene = GameScene(level: LevelLoader.load("level-1"))
+    /// Levels the ⏭ button cycles through, in order. A real level select comes with #21.
+    private static let levels = ["level-1", "long-swing", "test-room"]
+
+    @State private var levelIndex = 0
+    @State private var scene = GameScene(level: LevelLoader.load(ContentView.levels[0]))
     @State private var tuning = Tuning.default
     @State private var showTuning = false
 
@@ -15,6 +19,7 @@ struct ContentView: View {
                 options: [.ignoresSiblingOrder],
                 debugOptions: [.showsFPS]
             )
+            .id(levelIndex)  // present the new scene when the level changes
             .ignoresSafeArea()
 
             HStack(alignment: .top, spacing: 8) {
@@ -26,17 +31,28 @@ struct ContentView: View {
                 } label: {
                     Image(systemName: "arrow.counterclockwise")
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(.black.opacity(0.7))
                 .accessibilityLabel("Restart level")
+                Button {
+                    nextLevel()
+                } label: {
+                    Image(systemName: "forward.end.fill")
+                }
+                .accessibilityLabel("Next level")
                 Button(showTuning ? "Done" : "Tune") { showTuning.toggle() }
-                    .buttonStyle(.borderedProminent)
-                    .tint(.black.opacity(0.7))
             }
+            .buttonStyle(.borderedProminent)
+            .tint(.black.opacity(0.7))
             .padding(12)
         }
         .onChange(of: tuning) { _, newValue in
             scene.tuning = newValue
         }
+    }
+
+    private func nextLevel() {
+        levelIndex = (levelIndex + 1) % Self.levels.count
+        let next = GameScene(level: LevelLoader.load(Self.levels[levelIndex]))
+        next.tuning = tuning
+        scene = next
     }
 }

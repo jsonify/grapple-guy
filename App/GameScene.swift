@@ -241,7 +241,7 @@ final class GameScene: SKScene {
         for event in simulation.update(deltaTime: simDt) {
             switch event {
             case .ropeAttached:
-                feedback.play(.attach, on: self)
+                feedback.play(.attach)
                 feedback.haptic(.medium)
                 if !hasAttachedOnce {
                     hasAttachedOnce = true
@@ -249,24 +249,24 @@ final class GameScene: SKScene {
                     hintLabel.run(.fadeOut(withDuration: 0.3))
                 }
             case .ropeBlocked(let wallPoint):
-                feedback.play(.clank, on: self)
+                feedback.play(.clank)
                 feedback.haptic(.rigid)
                 showFailedShot(to: wallPoint, blocked: true)
             case .ropeMissed(let end):
                 showFailedShot(to: end, blocked: false)
             case .gemCollected(let index):
-                feedback.play(.gem, on: self)
+                feedback.play(.gem)
                 feedback.haptic(.light)
                 gemNodes[index].run(.group([.scale(to: 2.2, duration: 0.25), .fadeOut(withDuration: 0.25)]))
             case .checkpointReached(let index):
-                feedback.play(.checkpoint, on: self)
+                feedback.play(.checkpoint)
                 feedback.haptic(.success)
                 checkpointNodes[index].strokeColor = Palette.finish
             case .crashed:
                 activeTouch = nil
                 shake = 1
                 hitStop = tuning.hitStopSeconds
-                feedback.play(.crash, on: self)
+                feedback.play(.crash)
                 feedback.haptic(.heavy)
                 stickman.setCrashed(true)
                 statusLabel.text = simulation.activeCheckpoint == nil
@@ -275,7 +275,7 @@ final class GameScene: SKScene {
             case .finished:
                 activeTouch = nil
                 hitStop = tuning.hitStopSeconds / 2
-                feedback.play(.finish, on: self)
+                feedback.play(.finish)
                 feedback.haptic(.success)
                 showFinish()
             }
@@ -373,7 +373,7 @@ final class GameScene: SKScene {
         let direction = (target - simulation.position).normalized
         let range = screenEdgeDistance(from: simulation.position, along: direction).map { $0 * tuning.ropeRangeScreenFactor }
         if simulation.fireGrapple(toward: target, range: range) {
-            feedback.play(.shoot, on: self)
+            feedback.play(.shoot)
             feedback.haptic(.light)
         }
     }
@@ -390,7 +390,7 @@ final class GameScene: SKScene {
         guard let active = activeTouch, touches.contains(active) else { return }
         activeTouch = nil
         if simulation.release() {
-            feedback.play(.boost, on: self)
+            feedback.play(.boost)
             feedback.haptic(.medium)
             showBoostEffect()
         }
@@ -433,6 +433,7 @@ final class GameScene: SKScene {
         introLabel.text = "\(level.name.isEmpty ? "Level" : level.name)\n"
             + "Reach the GOAL flag in \(level.par) swings or fewer\n"
             + "Every rope shot is a swing · grab ◆ gems on the way"
+            + (feedback.missingSounds.isEmpty ? "" : "\n⚠️ Sound files missing from the app: run xcodegen and rebuild")
         introLabel.removeAllActions()
         introLabel.alpha = 1
         introLabel.run(.sequence([.wait(forDuration: 4), .fadeOut(withDuration: 0.5)]))

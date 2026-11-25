@@ -12,7 +12,10 @@ final class Feedback {
         case light, medium, heavy, rigid, success
     }
 
-    private let sounds: [Sound: SKAction]
+    /// A few players per sound so rapid repeats can overlap.
+    private var players: [Sound: [AVAudioPlayer]] = [:]
+    /// Sounds whose files weren't found in the app bundle (usually: `xcodegen` wasn't re-run).
+    private(set) var missingSounds: [String] = []
     private let light = UIImpactFeedbackGenerator(style: .light)
     private let medium = UIImpactFeedbackGenerator(style: .medium)
     private let heavy = UIImpactFeedbackGenerator(style: .heavy)
@@ -21,18 +24,32 @@ final class Feedback {
 
     init() {
         // Ambient: respects the silent switch and mixes with the player's own music.
-        try? AVAudioSession.sharedInstance().setCategory(.ambient, options: [.mixWithOthers])
-        var loaded: [Sound: SKAction] = [:]
-        for sound in Sound.allCases {
-            loaded[sound] = .playSoundFileNamed("\(sound.rawValue).wav", waitForCompletion: false)
+        let session = AVAudioSession.sharedInstance()
+        do {
+            try session.setCategory(.ambient, options: [.mixWithOthers])
+            try session.setActive(true)
+        } catch {
+            print("Feedback: audio session setup failed: \(error)")
         }
-        sounds = loaded
+        for sound in Sound.allCases {
+            guard let url = Bundle.main.url(forResource: sound.rawValue, withExtension: "wav") else {
+                missingSounds.append("\(sound.rawValue).wav")
+                continue
+            }
+            let pool = (0..<3).compactMap { _ in try? AVAudioPlayer(contentsOf: url) }
+            pool.forEach { $0.prepareToPlay() }
+            players[sound] = pool
+        }
+        if !missingSounds.isEmpty {
+            print("Feedback: missing from the app bundle: \(missingSounds.joined(separator: ", "))")
+        }
         prepare()
     }
 
-    func play(_ sound: Sound, on node: SKNode) {
-        guard let action = sounds[sound] else { return }
-        node.run(action)
+    func play(_ sound: Sound) {
+        guard let pool = players[sound], let player = pool.first(where: { !$0.isPlaying }) ?? pool.first else { return }
+        player.currentTime = 0
+        player.play()
     }
 
     func haptic(_ haptic: Haptic) {
