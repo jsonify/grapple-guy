@@ -1,42 +1,52 @@
 import SpriteKit
 import GrappleCore
 
-/// Draws the ragdoll's joints as a line-art stickman: thick, round-capped strokes.
+/// Draws the ragdoll as a cartoon stickman: white limbs over a thick dark outline, and a filled, outlined head.
 final class StickmanNode: SKNode {
-    private let shape = SKShapeNode()
-    private let headRadius = 9.0
+    private let outline = SKShapeNode()
+    private let limbs = SKShapeNode()
+    private let head = SKShapeNode(circleOfRadius: 11)
 
     override init() {
         super.init()
-        shape.strokeColor = Palette.stickman
-        shape.lineWidth = 5
-        shape.lineCap = .round
-        shape.lineJoin = .round
-        shape.fillColor = .clear
-        addChild(shape)
+        outline.strokeColor = Palette.outline
+        outline.lineWidth = 11
+        outline.lineCap = .round
+        outline.lineJoin = .round
+        addChild(outline)
+        limbs.strokeColor = Palette.stickman
+        limbs.lineWidth = 5
+        limbs.lineCap = .round
+        limbs.lineJoin = .round
+        addChild(limbs)
+        head.fillColor = Palette.stickman
+        head.strokeColor = Palette.outline
+        head.lineWidth = 4
+        addChild(head)
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
 
     func setCrashed(_ crashed: Bool) {
-        shape.strokeColor = crashed ? Palette.crashed : Palette.stickman
+        let color = crashed ? Palette.crashed : Palette.stickman
+        limbs.strokeColor = color
+        head.fillColor = color
     }
 
     func update(ragdoll r: Ragdoll) {
+        // Stroke-only path: open lines would fill as triangles.
         let path = CGMutablePath()
-        let head = r[.head]
-        path.addEllipse(in: CGRect(x: head.x - headRadius, y: head.y - headRadius,
-                                   width: headRadius * 2, height: headRadius * 2))
-
         func limb(_ joints: Ragdoll.Joint...) {
             path.move(to: CGPoint(r[joints[0]]))
             for joint in joints.dropFirst() { path.addLine(to: CGPoint(r[joint])) }
         }
-        limb(.neck, .pelvis)
+        limb(.head, .neck, .pelvis)
         limb(.neck, .leftElbow, .leftHand)
         limb(.neck, .rightElbow, .rightHand)
         limb(.pelvis, .leftKnee, .leftFoot)
         limb(.pelvis, .rightKnee, .rightFoot)
-        shape.path = path
+        outline.path = path
+        limbs.path = path
+        head.position = CGPoint(r[.head])
     }
 }

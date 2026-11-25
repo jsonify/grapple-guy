@@ -24,7 +24,7 @@ A landscape iOS side-scroller in which a stickman with hybrid ragdoll physics sw
 - **Checkpoints**: a crash respawns at the last checkpoint with strokes, time and gems carried over, so a crash costs strokes. A restart button resets the whole level.
 - **World 2**: introduces a second rope, fired with a second finger.
 - **v1.1**: tricks and style (flips, combos, slow-mo near-misses) and cosmetics (skins, rope colors, trails), including neon glow trails.
-- **Visual style**: clean line art, with the stickman drawn in code as thick, round-capped strokes, flat-color backgrounds with parallax layers and a color palette per world. No artist is needed, and it reads clearly at speed.
+- **Visual style (updated)**: **cartoon rooftops at sunset**, chosen by the developer when asking for a more polished, Golf Blitz-level finish (our own look, not a copy). Chunky rounded shapes with thick dark outlines, lit top rims on rooftop ledges, glowing orange grip pads to grapple, a white outlined stickman, a sunset gradient sky with a sun and a two-layer city skyline, bobbing gems, and a golf flag on the goal rooftop. The HUD uses rounded dark panels with a heavy rounded font, and the buttons are chunky orange capsules. Everything is still drawn in code, so no artist is needed.
 
 ## Assumptions
 - **Failure**: falling off screen or hitting a hazard triggers a ragdoll crash, then an instant restart at the level start, or at a checkpoint in longer levels. I proposed this and it wasn't objected to.

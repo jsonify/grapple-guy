@@ -41,8 +41,7 @@ struct ContentView: View {
                 .accessibilityLabel("Next level")
                 Button(showTuning ? "Done" : "Tune") { showTuning.toggle() }
             }
-            .buttonStyle(.borderedProminent)
-            .tint(.black.opacity(0.7))
+            .buttonStyle(ChunkyButtonStyle())
             .padding(12)
         }
         .onChange(of: tuning) { _, newValue in
@@ -61,5 +60,21 @@ struct ContentView: View {
         next.tuning = tuning
         next.onContinue = { nextLevel() }
         scene = next
+    }
+}
+
+/// Chunky cartoon button: orange capsule, thick dark outline, drop shadow, squish on press.
+struct ChunkyButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.system(size: 17, weight: .heavy, design: .rounded))
+            .foregroundStyle(.white)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 9)
+            .background(Capsule().fill(Color(red: 1.0, green: 0.55, blue: 0.13)))
+            .overlay(Capsule().stroke(Color(red: 0.12, green: 0.09, blue: 0.18), lineWidth: 3))
+            .shadow(color: Color(red: 0.12, green: 0.09, blue: 0.18).opacity(0.6), radius: 0, x: 0, y: 3)
+            .scaleEffect(configuration.isPressed ? 0.9 : 1)
+            .animation(.spring(response: 0.2, dampingFraction: 0.5), value: configuration.isPressed)
     }
 }
