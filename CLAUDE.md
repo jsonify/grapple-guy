@@ -8,6 +8,8 @@ iOS stickman grappling side-scroller. Spec: `docs/plans/grapple-guy.md`. Work is
 - Core tests: `cd Packages/GrappleCore && swift test`
 - App build: `xcodebuild -project GrappleGuy.xcodeproj -scheme GrappleGuy -destination 'generic/platform=iOS Simulator' build`
 
+- CI: `.github/workflows/ci.yml` runs core tests and an unsigned simulator build on a GitHub macOS runner on every push (check it when no Mac is available)
+
 ## Architecture rules
 
 - All physics and game rules go in `GrappleCore` (pure Swift, no SpriteKit/UIKit) with unit tests. The app layer only renders and turns input into calls on `SwingSimulation`.

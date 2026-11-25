@@ -1,0 +1,50 @@
+# Builds and tests on a GitHub-hosted Mac on every push, so changes can be checked without the developer's Mac.
+name: CI
+
+on:
+  push:
+    branches: [main, "claude/**"]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Xcode version
+        run: xcodebuild -version && swift --version
+
+      - name: Core tests (GrappleCore)
+        working-directory: Packages/GrappleCore
+        run: swift test 2>&1 | tee ../../core-tests.log
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        run: xcodegen
+
+      - name: Build app (iOS Simulator, unsigned)
+        run: |
+          set -o pipefail
+          xcodebuild -project GrappleGuy.xcodeproj -scheme GrappleGuy \
+            -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO build 2>&1 | tee app-build.log | grep -E "error:|warning: .*GrappleGuy|BUILD" || true
+          grep -q "BUILD SUCCEEDED" app-build.log
+
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: logs
+          path: |
+            core-tests.log
+            app-build.log
+          if-no-files-found: ignore
