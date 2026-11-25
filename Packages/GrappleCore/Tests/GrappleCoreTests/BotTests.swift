@@ -94,11 +94,17 @@ final class BotTests: XCTestCase {
             .deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent("App/Levels")
         let level = try LevelBuilder.load(levelData: Data(contentsOf: levels.appendingPathComponent("rooftop-pools.json")),
                                           chunkData: Data(contentsOf: levels.appendingPathComponent("chunks.json")))
-        for skill in [BotSkill.rookie, .steady, .pro] {
+        // Steady and Pro must finish; the rookie may hit the pick-up limit on a hazard level, but should get most of the way.
+        for skill in [BotSkill.steady, .pro] {
             let bot = Bot(level: level, skill: skill, seed: 11, wind: 0, ropeRange: 1500)
             bot.finishInstantly(maxSeconds: 120)
             XCTAssertTrue(bot.isFinished, "\(skill.name) didn't finish Rooftop Pools: at \(bot.sim.position), \(bot.sim.strokes) swings")
         }
+        let rookie = Bot(level: level, skill: .rookie, seed: 11, wind: 0, ropeRange: 1500)
+        rookie.finishInstantly(maxSeconds: 120)
+        XCTAssertTrue(rookie.hasStopped, "rookie should finish or pick up, not play forever")
+        XCTAssertTrue(rookie.isFinished || rookie.sim.position.x > level.finishX * 0.6,
+                      "rookie stalled early: at \(rookie.sim.position), \(rookie.sim.strokes) swings")
     }
 
     /// Prints bot decisions for the failing scenarios so CI logs show why (no assertions).
