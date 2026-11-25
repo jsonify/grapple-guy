@@ -3,7 +3,7 @@ import SwiftUI
 import GrappleCore
 
 struct ContentView: View {
-    @State private var scene = GameScene(level: LevelLoader.load("test-room"))
+    @State private var scene = GameScene(level: LevelLoader.load("level-1"))
     @State private var tuning = Tuning.default
     @State private var showTuning = false
 

@@ -1,0 +1,14 @@
+{
+  "name": "First Swings",
+  "par": 5,
+  "killY": -500,
+  "chunks": [
+    {"id": "start"},
+    {"id": "ceiling"},
+    {"id": "ceiling", "dy": 40},
+    {"id": "ceiling-gem"},
+    {"id": "ceiling", "dy": 60},
+    {"id": "ceiling"},
+    {"id": "finish"}
+  ]
+}

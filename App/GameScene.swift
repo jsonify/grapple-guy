@@ -13,6 +13,13 @@ final class GameScene: SKScene {
     private let statusLabel = SKLabelNode(fontNamed: "Menlo-Bold")
     private let timerLabel = SKLabelNode(fontNamed: "Menlo")
     private let hintLabel = SKLabelNode(fontNamed: "Menlo-Bold")
+    /// Big "SWINGS 3 / PAR 5" counter, top centre.
+    private let swingsLabel = SKLabelNode(fontNamed: "Menlo-Bold")
+    /// Level name and rules, shown at the start of each attempt.
+    private let introLabel = SKLabelNode(fontNamed: "Menlo-Bold")
+    /// Points toward the goal flag while it's off screen.
+    private let goalArrow = SKLabelNode(fontNamed: "Menlo-Bold")
+    private var shownSwings = 0
     private var hasAttachedOnce = false
     private var gemNodes: [SKShapeNode] = []
     private var checkpointNodes: [SKShapeNode] = []
@@ -78,9 +85,27 @@ final class GameScene: SKScene {
         hintLabel.numberOfLines = 2
         hintLabel.horizontalAlignmentMode = .center
         hintLabel.verticalAlignmentMode = .center
-        hintLabel.text = "Touch to fire the rope · hold to pull · let go to fly\nFewer shots = better score · grab gems · reach the GREEN line"
+        hintLabel.text = "Tap to shoot your rope at ORANGE blocks\nHold to pull in · let go to fly"
         hintLabel.run(.repeatForever(.sequence([.fadeAlpha(to: 0.45, duration: 0.8), .fadeAlpha(to: 1, duration: 0.8)])))
         cameraNode.addChild(hintLabel)
+
+        swingsLabel.fontSize = 30
+        swingsLabel.verticalAlignmentMode = .top
+        cameraNode.addChild(swingsLabel)
+
+        introLabel.fontSize = 30
+        introLabel.numberOfLines = 0
+        introLabel.verticalAlignmentMode = .center
+        introLabel.fontColor = Palette.stickman
+        cameraNode.addChild(introLabel)
+
+        goalArrow.fontSize = 24
+        goalArrow.fontColor = Palette.finish
+        goalArrow.horizontalAlignmentMode = .right
+        goalArrow.verticalAlignmentMode = .center
+        cameraNode.addChild(goalArrow)
+
+        showIntro()
 
         layoutForSize()
         cameraNode.position = CGPoint(simulation.position + Vec2(0, cameraLift))
@@ -97,8 +122,11 @@ final class GameScene: SKScene {
         cameraNode.setScale(visibleHeight / size.height)
         // HUD children of the camera use screen points.
         timerLabel.position = CGPoint(x: -size.width / 2 + 24, y: size.height / 2 - 16)
-        statusLabel.position = CGPoint(x: 0, y: size.height * 0.15)
+        statusLabel.position = CGPoint(x: 0, y: size.height * 0.12)
         hintLabel.position = CGPoint(x: 0, y: -size.height * 0.32)
+        swingsLabel.position = CGPoint(x: 0, y: size.height / 2 - 14)
+        introLabel.position = CGPoint(x: 0, y: size.height * 0.12)
+        goalArrow.position = CGPoint(x: size.width / 2 - 24, y: 0)
     }
 
     private func buildLevel() {
@@ -110,10 +138,40 @@ final class GameScene: SKScene {
             world.addChild(node)
         }
 
-        let finish = SKShapeNode(rect: CGRect(x: simulation.level.finishX - 4, y: simulation.level.killY, width: 8, height: 1600))
-        finish.fillColor = Palette.finish.withAlphaComponent(0.5)
-        finish.strokeColor = .clear
-        world.addChild(finish)
+        // Goal: a tall flag standing on whatever surface is under the finish line.
+        let finishX = simulation.level.finishX
+        let groundY = simulation.level.surfaces
+            .filter { $0.bounds.lower.x <= finishX && $0.bounds.upper.x >= finishX && $0.bounds.upper.y <= 100 }
+            .map(\.bounds.upper.y).max() ?? 0
+        let band = SKShapeNode(rect: CGRect(x: finishX - 3, y: simulation.level.killY, width: 6, height: 2000))
+        band.fillColor = Palette.finish.withAlphaComponent(0.25)
+        band.strokeColor = .clear
+        world.addChild(band)
+        let flagPath = CGMutablePath()
+        flagPath.move(to: .zero)
+        flagPath.addLine(to: CGPoint(x: 0, y: 260))
+        let pole = SKShapeNode(path: flagPath)
+        pole.strokeColor = Palette.stickman
+        pole.lineWidth = 6
+        pole.lineCap = .round
+        pole.position = CGPoint(x: finishX, y: groundY)
+        world.addChild(pole)
+        let pennant = CGMutablePath()
+        pennant.move(to: CGPoint(x: 0, y: 260))
+        pennant.addLine(to: CGPoint(x: 110, y: 222))
+        pennant.addLine(to: CGPoint(x: 0, y: 184))
+        pennant.closeSubpath()
+        let flag = SKShapeNode(path: pennant)
+        flag.fillColor = Palette.finish
+        flag.strokeColor = .clear
+        flag.position = pole.position
+        world.addChild(flag)
+        let goalText = SKLabelNode(fontNamed: "Menlo-Bold")
+        goalText.text = "GOAL"
+        goalText.fontSize = 34
+        goalText.fontColor = Palette.finish
+        goalText.position = CGPoint(x: finishX, y: groundY + 290)
+        world.addChild(goalText)
 
         for gem in simulation.level.gems {
             let path = CGMutablePath()
@@ -184,8 +242,8 @@ final class GameScene: SKScene {
                 shake = 1
                 stickman.setCrashed(true)
                 statusLabel.text = simulation.activeCheckpoint == nil
-                    ? "CRASHED · tap to retry"
-                    : "CRASHED · tap to respawn at checkpoint"
+                    ? "CRASHED!\nTap to try again from the start (your swings still count)"
+                    : "CRASHED!\nTap to try again from the checkpoint flag (your swings still count)"
             case .finished:
                 activeTouch = nil
                 showFinish()
@@ -208,9 +266,30 @@ final class GameScene: SKScene {
             ropeNode.path = nil
         }
 
-        timerLabel.text = String(format: "%.2f   Strokes %d / par %d   ◆ %d/%d",
-                                 simulation.elapsed, simulation.strokes, simulation.level.par,
-                                 simulation.collectedGems.count, simulation.level.gems.count)
+        timerLabel.text = String(format: "◆ %d/%d   %.1fs",
+                                 simulation.collectedGems.count, simulation.level.gems.count, simulation.elapsed)
+        let swings = simulation.strokes
+        let par = simulation.level.par
+        swingsLabel.text = "SWINGS \(swings) / PAR \(par)"
+        swingsLabel.fontColor = swings <= par ? Palette.stickman : Palette.crashed
+        if swings != shownSwings {
+            shownSwings = swings
+            if swings > 0 {
+                swingsLabel.removeAction(forKey: "bump")
+                swingsLabel.setScale(1.35)
+                swingsLabel.run(.scale(to: 1, duration: 0.2), withKey: "bump")
+            }
+        }
+
+        // Arrow toward the goal while it's off screen to the right.
+        let visibleRight = Double(cameraNode.position.x) + Double(size.width * cameraNode.xScale) / 2
+        let toGoal = simulation.level.finishX - simulation.position.x
+        if simulation.level.finishX > visibleRight && simulation.state == .playing {
+            goalArrow.text = String(format: "GOAL %dm ▶", Int(max(0, toGoal) / 100))
+            goalArrow.isHidden = false
+        } else {
+            goalArrow.isHidden = true
+        }
 
         // Shake the world, not the camera, so the HUD stays still.
         if shake > 0.01 {
@@ -249,6 +328,7 @@ final class GameScene: SKScene {
         }
 
         activeTouch = touch
+        hideIntro()
         let point = touch.location(in: self)
         let target = Vec2(point)
         let direction = (target - simulation.position).normalized
@@ -301,19 +381,37 @@ final class GameScene: SKScene {
         stickman.setCrashed(false)
         statusLabel.text = nil
         cameraNode.position = CGPoint(simulation.position + Vec2(0, cameraLift))
+        if simulation.strokes == 0 { showIntro() }
+    }
+
+    private func showIntro() {
+        let level = simulation.level
+        introLabel.text = "\(level.name.isEmpty ? "Level" : level.name)\n"
+            + "Reach the GOAL flag in \(level.par) swings or fewer\n"
+            + "Every rope shot is a swing · grab ◆ gems on the way"
+        introLabel.removeAllActions()
+        introLabel.alpha = 1
+        introLabel.run(.sequence([.wait(forDuration: 4), .fadeOut(withDuration: 0.5)]))
+    }
+
+    private func hideIntro() {
+        guard introLabel.alpha > 0 else { return }
+        introLabel.removeAllActions()
+        introLabel.run(.fadeOut(withDuration: 0.2))
     }
 
     private func showFinish() {
         guard let result = simulation.runResult else { return }
         let record = ProgressStore.save(result, for: simulation.level.name)
-        let stars = Star.allCases.map { result.stars.contains($0) ? "★" : "☆" }.joined()
+        func star(_ s: Star) -> String { result.stars.contains(s) ? "★" : "☆" }
         var lines = [
-            "\(stars)  \(result.golfTerm)",
-            "\(result.strokes) strokes · par \(result.par) · ◆ \(result.gemsCollected)/\(result.gemsTotal) · "
-                + String(format: "%.2fs", result.time),
+            "\(result.golfTerm)  \(result.strokes) swings (par \(result.par))",
+            "\(star(.finished)) Reached the goal",
+            "\(star(.par)) \(result.par) swings or fewer",
+            "\(star(.allGems)) All gems (\(result.gemsCollected)/\(result.gemsTotal))",
         ]
         if let best = record.bestStrokes {
-            lines.append("Best: \(best) strokes · \(record.stars.count)/3 stars earned")
+            lines.append(String(format: "Best: %d swings · %.1fs", best, record.bestTime ?? result.time))
         }
         lines.append("Tap to play again")
         statusLabel.text = lines.joined(separator: "\n")
