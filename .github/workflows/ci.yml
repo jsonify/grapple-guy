@@ -11,6 +11,10 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+defaults:
+  run:
+    shell: bash  # explicit bash = -eo pipefail, so a failing command piped into tee still fails the step
+
 jobs:
   build-and-test:
     runs-on: macos-15
