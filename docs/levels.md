@@ -1,0 +1,61 @@
+# Making levels
+
+Levels live in `App/Levels/` as JSON. There are two kinds of file:
+
+- **`chunks.json`**: the library of reusable pieces ("chunks").
+- **`<level-name>.json`**: one file per level, listing chunks left to right.
+
+Coordinates are in world points, with **y pointing up** and the start platform's top at y = 0. For scale, the stickman is about 70 points tall, and the screen shows about 1400 points of height.
+
+## Chunks (`chunks.json`)
+
+```json
+{
+  "id": "ceiling-pillar",
+  "width": 420,
+  "elements": [
+    { "type": "grapple", "rect": [130, 560, 160, 40] },
+    { "type": "solid",   "rect": [340, -600, 80, 820] }
+  ]
+}
+```
+
+- `id`: a unique name that levels refer to.
+- `width`: where the next chunk starts, measured from this chunk's left edge.
+- `elements`: placed in chunk-local coordinates, with x = 0 at the chunk's left edge.
+
+| Element | JSON | Notes |
+|---|---|---|
+| Grappleable block | `{"type": "grapple", "rect": [x, y, w, h]}` | Orange. The rope sticks to it. |
+| Solid block | `{"type": "solid", "rect": [x, y, w, h]}` | Gray. Blocks the stickman and the rope. |
+| Spawn | `{"type": "spawn", "at": [x, y]}` | Exactly one per level. |
+| Finish line | `{"type": "finish", "x": 100}` | Exactly one per level. |
+
+`rect` is `[left, bottom, width, height]`.
+
+## Levels
+
+```json
+{
+  "name": "Test Room",
+  "killY": -500,
+  "chunks": [
+    { "id": "start" },
+    { "id": "ceiling", "dy": 60 },
+    { "id": "ceiling-pillar" },
+    { "id": "finish" }
+  ]
+}
+```
+
+- Chunks are laid out left to right. Each one starts where the previous one's `width` ends.
+- `dy` (optional) shifts that one placement up (positive) or down (negative).
+- `killY`: falling below this height is a crash.
+
+## Checking your work
+
+```bash
+cd Packages/GrappleCore && swift test
+```
+
+`testEveryShippedLevelLoads` loads every level in `App/Levels`. It fails, naming the file and the problem, if a level uses an unknown chunk, lacks a spawn or finish (or has two of either), or contains a malformed element. To play a different level, change the name passed to `LevelLoader.load` in `App/ContentView.swift`.

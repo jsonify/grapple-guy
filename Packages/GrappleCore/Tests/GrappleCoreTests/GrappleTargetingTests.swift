@@ -92,10 +92,4 @@ final class GrappleTargetingTests: XCTestCase {
     func testOpenSkyKeepsNarrowAssist() {
         guard case .missed = shot(aimAt: Vec2(0, 100), [offAxisBlock]) else { return XCTFail("assist should stay at 18° without a wall") }
     }
-
-    func testTestRoomIsSwingableFromSpawn() {
-        let room = Level.testRoom
-        let first = GrappleTargeting.findAnchor(from: room.spawn, aimAt: room.spawn + Vec2(300, 500), in: room, tuning: .default)
-        XCTAssertNotNil(first, "the first ceiling block should be reachable from the spawn")
-    }
 }

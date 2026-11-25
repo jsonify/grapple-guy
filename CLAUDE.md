@@ -15,3 +15,4 @@ iOS stickman grappling side-scroller. Spec: `docs/plans/grapple-guy.md`. Work is
 - The rope is a single length constraint, not a chain of segments (avoids jitter).
 - Every feel number belongs in `Tuning` and gets a slider in `App/TuningPanel.swift`.
 - World units are points, y up (matches SpriteKit).
+- Levels are JSON in `App/Levels/` (chunk library + level files), built by `LevelBuilder` in `GrappleCore`. Format guide: `docs/levels.md`. New element types go in `ChunkElement` with tests.

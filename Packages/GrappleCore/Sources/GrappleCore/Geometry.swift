@@ -12,6 +12,13 @@ public struct AABB: Equatable, Codable, Sendable {
     public var height: Double { upper.y - lower.y }
     public var center: Vec2 { (lower + upper) / 2 }
 
+    public func offset(by v: Vec2) -> AABB {
+        var moved = self
+        moved.lower = lower + v
+        moved.upper = upper + v
+        return moved
+    }
+
     public func contains(_ p: Vec2) -> Bool {
         p.x >= lower.x && p.x <= upper.x && p.y >= lower.y && p.y <= upper.y
     }
