@@ -22,7 +22,8 @@ final class GameScene: SKScene {
     /// Level name and rules, shown at the start of each attempt.
     private let introCard = Card(padding: CGSize(width: 30, height: 18), cornerRadius: 26)
     /// Crash and finish messages.
-    private let statusCard = Card(padding: CGSize(width: 30, height: 18), cornerRadius: 26)
+    private let statusCard = Card(fill: Palette.hudPanel.withAlphaComponent(0.96), padding: CGSize(width: 30, height: 16),
+                                  cornerRadius: 26)
     /// How-to hint until the first successful grapple.
     private let hintCard = Card(padding: CGSize(width: 18, height: 8))
     /// Wind direction and strength (only on windy holes).
@@ -114,6 +115,11 @@ final class GameScene: SKScene {
         }
         statusCard.set(nil, maxWidth: 0)
         penaltyCard.set(nil, maxWidth: 0)
+        // Explicit layering (the view ignores sibling order): message cards above the HUD.
+        for card in [infoCard, standingsCard, goalCard, swingsCard, windCard, hintCard] { card.zPosition = 10 }
+        introCard.zPosition = 20
+        penaltyCard.zPosition = 30
+        statusCard.zPosition = 40
         hintCard.run(.repeatForever(.sequence([.fadeAlpha(to: 0.55, duration: 0.8), .fadeAlpha(to: 1, duration: 0.8)])))
 
         showIntro()
@@ -255,7 +261,7 @@ final class GameScene: SKScene {
                 statusCard.set(Theme.join([
                     Theme.text("OUCH!\n", size: 40, color: Palette.overPar, outline: Palette.outline),
                     Theme.text("Tap to go again from \(from)\nYour swings still count", size: 20),
-                ]), maxWidth: size.width * 0.9)
+                ]), maxWidth: size.width * 0.9, maxHeight: size.height * 0.8)
             case .finished:
                 activeTouch = nil
                 hitStop = tuning.hitStopSeconds / 2
@@ -443,7 +449,7 @@ final class GameScene: SKScene {
         if !feedback.missingSounds.isEmpty {
             parts.append(Theme.text("\n⚠️ Sound files missing: run xcodegen and rebuild", size: 16, color: Palette.overPar))
         }
-        introCard.set(Theme.join(parts), maxWidth: size.width * 0.9)
+        introCard.set(Theme.join(parts), maxWidth: size.width * 0.9, maxHeight: size.height * 0.7)
         introCard.removeAllActions()
         introCard.alpha = 1
         introCard.run(.sequence([.wait(forDuration: 4), .fadeOut(withDuration: 0.5)]))
@@ -592,7 +598,8 @@ final class GameScene: SKScene {
 
     private func updateWindCard() {
         let wind = simulation.wind * tuning.windStrength
-        guard abs(wind) >= 1 else {
+        // Hide wind too weak to show as at least 1.
+        guard abs(wind) >= 20 else {
             windCard.set(nil, maxWidth: 0)
             return
         }
@@ -608,36 +615,33 @@ final class GameScene: SKScene {
         guard let result = simulation.runResult else { return }
         let record = ProgressStore.save(result, for: simulation.level.name)
         // Bots still on the course play on instantly so the hole can be scored now.
-        for view in bots where !view.bot.isFinished { view.bot.finishInstantly() }
-        let faded = Palette.hudText.withAlphaComponent(0.6)
-        func starLine(_ star: Star, _ label: String) -> [NSAttributedString] {
-            let earned = result.stars.contains(star)
-            return [
-                Theme.text(earned ? "★ " : "☆ ", size: 26, color: earned ? Palette.gold : faded),
-                Theme.text(label + "\n", size: 18, color: earned ? Palette.hudText : faded),
-            ]
-        }
+        for view in bots where !view.bot.hasStopped { view.bot.finishInstantly() }
         let standings = currentStandings()
         let place = (standings.firstIndex { $0.isPlayer } ?? 0) + 1
         let placeTitle = place == 1 ? "YOU WIN THE HOLE!" : "\(ordinal(place)) PLACE"
         var parts: [NSAttributedString] = [
-            Theme.text("\(placeTitle)\n", size: 40, color: place == 1 ? Palette.gold : .white, outline: Palette.outline),
-            Theme.text("\(result.golfTerm) · \(result.strokes) swings · par \(result.par)\n", size: 20),
+            Theme.text("\(placeTitle)\n", size: 34, color: place == 1 ? Palette.gold : .white, outline: Palette.outline),
+            Theme.text("\(result.golfTerm) · \(result.strokes) swings · par \(result.par)\n", size: 18),
         ]
         for (i, entry) in standings.enumerated() {
-            let time = entry.time.map { String(format: "%.1fs", $0) } ?? "DNF"
+            let time = entry.time.map { String(format: "%.1fs", $0) } ?? "gave up"
             let line = "\(ordinal(i + 1))  \(entry.isPlayer ? "You" : entry.name)   \(entry.strokes) swings · \(time)\n"
-            parts.append(Theme.text(line, size: 16, color: entry.isPlayer ? Palette.gold : nameColor(entry.name)))
+            parts.append(Theme.text(line, size: 15, color: entry.isPlayer ? Palette.gold : nameColor(entry.name)))
         }
-        parts += starLine(.finished, "Reached the goal")
-        parts += starLine(.par, "\(result.par) swings or fewer")
-        parts += starLine(.allGems, "All gems (\(result.gemsCollected)/\(result.gemsTotal))")
+        // Stars on one line.
+        let faded = Palette.hudText.withAlphaComponent(0.45)
+        for (star, label) in [(Star.finished, "Goal"), (.par, "Par"), (.allGems, "Gems \(result.gemsCollected)/\(result.gemsTotal)")] {
+            let earned = result.stars.contains(star)
+            parts.append(Theme.text(earned ? "★ " : "☆ ", size: 20, color: earned ? Palette.gold : faded))
+            parts.append(Theme.text(label + "     ", size: 15, color: earned ? Palette.hudText : faded))
+        }
+        var footer = "\n"
         if let best = record.bestStrokes {
-            parts.append(Theme.text(String(format: "Best: %d swings · %.1fs\n", best, record.bestTime ?? result.time),
-                                    size: 15, color: faded))
+            footer += String(format: "Best %d swings · %.1fs     ", best, record.bestTime ?? result.time)
         }
-        parts.append(Theme.text(onContinue == nil ? "Tap to play again" : "Tap for the next hole ▶", size: 20, color: Palette.boost))
-        statusCard.set(Theme.join(parts), maxWidth: size.width * 0.9)
+        parts.append(Theme.text(footer, size: 13, color: faded))
+        parts.append(Theme.text(onContinue == nil ? "Tap to play again" : "Tap for the next hole ▶", size: 18, color: Palette.boost))
+        statusCard.set(Theme.join(parts), maxWidth: size.width * 0.9, maxHeight: size.height * 0.86)
     }
 
     /// Distance from `p` to the edge of the visible world along `direction`, or nil if `p` is off screen.

@@ -47,6 +47,9 @@ public final class Bot {
         var hold: Double
     }
 
+    /// Plans scoring at or below this attach nowhere useful (missed, own pad, crash): don't spend a swing on them.
+    static let hopeless = -9e5
+
     private enum Phase {
         case thinking(until: Double)
         case firing(Plan)
@@ -58,6 +61,13 @@ public final class Bot {
 
     private var phase: Phase
     private var clock: Double = 0
+    /// Stuck detection: furthest x reached, and swings since it last improved.
+    private var bestX = -Double.infinity
+    private var swingsWithoutProgress = 0
+    private var lastFaithShot = -Double.infinity
+    /// Like golf's pick-up rule: a bot stops after this many swings and takes a DNF.
+    public var swingLimit: Int
+    public private(set) var gaveUp = false
     private var random: SeededRandom
     private let seed: UInt64
     private let wind: Double
@@ -70,6 +80,7 @@ public final class Bot {
         self.seed = seed
         self.wind = wind
         self.ropeRange = ropeRange
+        swingLimit = max(8, level.par * 2 + 2)
         random = SeededRandom(seed: seed)
         sim = SwingSimulation(level: level, tuning: tuning, seed: seed, wind: wind)
         phase = .thinking(until: skill.reaction)
@@ -80,11 +91,18 @@ public final class Bot {
         return false
     }
 
+    /// Finished, or gave up at the swing limit.
+    public var hasStopped: Bool { isFinished || gaveUp }
+
     /// Starts the hole over (same wind and seed).
     public func reset() {
         sim = SwingSimulation(level: sim.level, tuning: sim.tuning, seed: seed, wind: wind)
         random = SeededRandom(seed: seed)
         clock = 0
+        bestX = -.infinity
+        swingsWithoutProgress = 0
+        lastFaithShot = -.infinity
+        gaveUp = false
         phase = .thinking(until: skill.reaction)
     }
 
@@ -92,6 +110,7 @@ public final class Bot {
     @discardableResult
     public func update(deltaTime: Double) -> [SimEvent] {
         clock += deltaTime
+        if gaveUp { return [] }
         decide()
         let events = sim.update(deltaTime: deltaTime)
         for event in events {
@@ -104,7 +123,7 @@ public final class Bot {
     public func finishInstantly(maxSeconds: Double = 90) {
         let step = 1.0 / 60.0
         var simulated = 0.0
-        while !isFinished && simulated < maxSeconds {
+        while !hasStopped && simulated < maxSeconds {
             update(deltaTime: step)
             simulated += step
         }
@@ -114,6 +133,15 @@ public final class Bot {
         if isFinished {
             phase = .done
             return
+        }
+        if sim.strokes >= swingLimit && sim.rope == nil && sim.shot == nil {
+            gaveUp = true
+            phase = .done
+            return
+        }
+        if sim.position.x > bestX + 150 {
+            bestX = sim.position.x
+            swingsWithoutProgress = 0
         }
         if sim.state == .crashed {
             if case .crashed(let at) = phase {
@@ -130,8 +158,19 @@ public final class Bot {
         switch phase {
         case .thinking(let until):
             guard clock >= until else { return }
-            let plan = makePlan()
+            guard let plan = makePlan() else {
+                // Nothing useful in reach: wait (or fall) and look again, with an occasional shot of faith.
+                if clock - lastFaithShot > 2 && sim.fireGrapple(toward: sim.position + Vec2(700, 650), range: ropeRange) {
+                    lastFaithShot = clock
+                    swingsWithoutProgress += 1
+                    phase = .firing(Plan(target: sim.position + Vec2(700, 650), hold: 0.5))
+                } else {
+                    phase = .thinking(until: clock + 0.3)
+                }
+                return
+            }
             if sim.fireGrapple(toward: plan.target, range: ropeRange) {
+                swingsWithoutProgress += 1
                 phase = .firing(plan)
             } else {
                 phase = .thinking(until: clock + 0.2)
@@ -159,27 +198,29 @@ public final class Bot {
 
     // MARK: - Planning
 
-    private func makePlan() -> Plan {
+    /// The best plan, or nil if nothing in reach is worth a swing.
+    private func makePlan() -> Plan? {
         let here = sim.position
+        // When stuck, look at everything in reach with more hold options.
+        let stuck = swingsWithoutProgress >= 3
+        let holds = stuck ? [0, 0.3, 0.6, 0.9, 1.2, 1.6] : skill.holdOptions
         let pads = sim.level.surfaces
             .filter { $0.isGrappleable }
-            .map { Vec2($0.bounds.center.x, $0.bounds.lower.y) }
-            .filter { $0.x > here.x - 150 && $0.distance(to: here) <= ropeRange }
-            .sorted { $0.x > $1.x }  // farthest ahead first
-            .prefix(max(1, skill.candidatePads))
+            .map(\.bounds)
+            .filter { $0.center.x > here.x - 150 && $0.center.distance(to: here) <= ropeRange }
+            .sorted { $0.center.x > $1.center.x }  // farthest ahead first
+            .prefix(stuck ? 12 : max(1, skill.candidatePads))
 
         var scored: [(plan: Plan, score: Double)] = []
-        for target in pads {
-            for hold in skill.holdOptions {
-                let plan = Plan(target: target, hold: hold)
-                scored.append((plan, evaluate(plan)))
+        for pad in pads {
+            for hold in holds {
+                // Aim at the pad's middle: the rope hits whichever face is visible (top or bottom).
+                let plan = Plan(target: pad.center, hold: hold)
+                let score = evaluate(plan, pad: pad)
+                if score > Self.hopeless { scored.append((plan, score)) }
             }
         }
-
-        // Nothing reachable: a shot of faith up and ahead.
-        guard !scored.isEmpty else {
-            return Plan(target: here + Vec2(600, 700), hold: 0.4)
-        }
+        guard !scored.isEmpty else { return nil }
 
         scored.sort { $0.score > $1.score }
         var pick = 0
@@ -193,7 +234,7 @@ public final class Bot {
     }
 
     /// Simulates a plan ahead (fire → hold → let go → fly) and scores where it ends up.
-    private func evaluate(_ plan: Plan) -> Double {
+    private func evaluate(_ plan: Plan, pad: AABB) -> Double {
         let lookahead = sim.copy()
         lookahead.simulatesRagdoll = false
         let startPenalties = lookahead.penalties
@@ -206,7 +247,10 @@ public final class Bot {
             lookahead.step(dt)
             t += dt
         }
-        guard lookahead.rope != nil else { return -1e6 }
+        // Must catch the intended pad, and not one right underneath (that just wastes a swing).
+        guard let anchor = lookahead.rope?.anchor else { return -1e6 }
+        let padZone = AABB(x: pad.lower.x - 2, y: pad.lower.y - 2, width: pad.width + 4, height: pad.height + 4)
+        guard padZone.contains(anchor), anchor.distance(to: sim.position) > 120 else { return -1e6 }
 
         t = 0
         while t < plan.hold && lookahead.state == .playing && lookahead.penalties == startPenalties {

@@ -29,8 +29,8 @@ final class Card: SKNode {
 
     required init?(coder aDecoder: NSCoder) { fatalError("init(coder:) is not supported") }
 
-    /// Shows `text` (nil hides the card), scaled down if wider than `maxWidth` screen points.
-    func set(_ text: NSAttributedString?, maxWidth: CGFloat) {
+    /// Shows `text` (nil hides the card), scaled down to fit within `maxWidth` × `maxHeight` screen points.
+    func set(_ text: NSAttributedString?, maxWidth: CGFloat, maxHeight: CGFloat = .infinity) {
         guard let text else {
             isHidden = true
             lastText = nil
@@ -44,7 +44,8 @@ final class Card: SKNode {
             background.path = CGPath(roundedRect: rect, cornerWidth: cornerRadius, cornerHeight: cornerRadius, transform: nil)
             naturalSize = rect.size
         }
-        fitScale = naturalSize.width > maxWidth && naturalSize.width > 0 ? maxWidth / naturalSize.width : 1
+        guard naturalSize.width > 0, naturalSize.height > 0 else { return }
+        fitScale = min(1, maxWidth / naturalSize.width, maxHeight / naturalSize.height)
         if action(forKey: "bump") == nil { setScale(fitScale) }
     }
 

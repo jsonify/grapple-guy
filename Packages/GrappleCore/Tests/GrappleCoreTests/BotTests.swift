@@ -68,6 +68,39 @@ final class BotTests: XCTestCase {
         XCTAssertEqual(bot.sim.position, Vec2(0, 40))
     }
 
+    func testBotStandingOnTopOfAPadDoesNotGrappleItsOwnPad() {
+        // The bot starts on top of a pad (as when Sam landed on one): it must reach the next pads, not loop.
+        var level = course()
+        level.spawn = Vec2(380, 620)  // on top of the first pad (x 300…460, top 600)
+        let bot = Bot(level: level, skill: .steady, seed: 5, wind: 0, ropeRange: 1300)
+        bot.finishInstantly(maxSeconds: 90)
+        XCTAssertTrue(bot.isFinished, "ended at \(bot.sim.position) after \(bot.sim.strokes) swings")
+        XCTAssertLessThanOrEqual(bot.sim.strokes, 10)
+    }
+
+    func testBotGivesUpAtTheSwingLimit() {
+        // No pads at all: nothing to do but occasional shots of faith; it must stop, not run forever.
+        let level = Level(surfaces: [Surface(bounds: AABB(x: -200, y: -40, width: 500, height: 40), isGrappleable: false)],
+                          spawn: Vec2(0, 40), killY: -500, finishX: 99_999, par: 3)
+        let bot = Bot(level: level, skill: .pro, seed: 1, wind: 0, ropeRange: 1300)
+        bot.finishInstantly(maxSeconds: 300)
+        XCTAssertTrue(bot.gaveUp)
+        XCTAssertLessThanOrEqual(bot.sim.strokes, bot.swingLimit)
+    }
+
+    func testBotsHandleTheShippedHazardLevel() throws {
+        let levels = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+            .deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent("App/Levels")
+        let level = try LevelBuilder.load(levelData: Data(contentsOf: levels.appendingPathComponent("rooftop-pools.json")),
+                                          chunkData: Data(contentsOf: levels.appendingPathComponent("chunks.json")))
+        for skill in [BotSkill.rookie, .steady, .pro] {
+            let bot = Bot(level: level, skill: skill, seed: 11, wind: 0, ropeRange: 1500)
+            bot.finishInstantly(maxSeconds: 120)
+            XCTAssertTrue(bot.isFinished, "\(skill.name) didn't finish Rooftop Pools: at \(bot.sim.position), \(bot.sim.strokes) swings")
+        }
+    }
+
     func testStandingsRankFinishersBySwingsThenTime() {
         let ranked = RaceStandings.rank([
             RaceEntry(name: "slow", strokes: 3, time: 20),
