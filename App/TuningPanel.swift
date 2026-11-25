@@ -1,0 +1,59 @@
+import SwiftUI
+import UIKit
+import GrappleCore
+
+/// Live sliders for every feel parameter (issue #9). Changes apply immediately.
+struct TuningPanel: View {
+    @Binding var tuning: Tuning
+    @State private var copied = false
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 10) {
+                slider("Gravity", $tuning.gravity, 200...5000)
+                slider("Air drag", $tuning.airDrag, 0...2)
+                slider("Max speed", $tuning.maxSpeed, 500...6000)
+                slider("Rope range", $tuning.ropeRange, 200...1500)
+                slider("Min rope length", $tuning.minRopeLength, 10...200)
+                slider("Assist radius", $tuning.aimAssistRadius, 0...400)
+                slider("Assist angle (°)", $tuning.aimAssistAngleDegrees, 0...45)
+                slider("Crash impact speed", $tuning.crashImpactSpeed, 200...4000)
+                slider("Surface friction", $tuning.surfaceFriction, 0...20)
+
+                HStack {
+                    Button("Reset") { tuning = .default }
+                    Spacer()
+                    Button(copied ? "Copied" : "Copy JSON") { copyJSON() }
+                }
+                .buttonStyle(.bordered)
+            }
+            .padding(12)
+        }
+        .frame(width: 300)
+        .frame(maxHeight: 340)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
+    }
+
+    private func slider(_ title: String, _ value: Binding<Double>, _ range: ClosedRange<Double>) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            HStack {
+                Text(title)
+                Spacer()
+                Text(value.wrappedValue, format: .number.precision(.fractionLength(2)))
+                    .monospacedDigit()
+            }
+            .font(.caption)
+            Slider(value: value, in: range)
+        }
+    }
+
+    /// Copies the current values so good settings can be pasted back as the new defaults in `Tuning.swift`.
+    private func copyJSON() {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        guard let data = try? encoder.encode(tuning), let json = String(data: data, encoding: .utf8) else { return }
+        UIPasteboard.general.string = json
+        copied = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { copied = false }
+    }
+}
