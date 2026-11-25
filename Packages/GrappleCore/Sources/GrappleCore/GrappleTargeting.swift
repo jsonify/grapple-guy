@@ -26,8 +26,8 @@ public enum GrappleTargeting {
     ///    grappleable surface. When the direct shot hit a wall, the fan widens to `aimAssistBlockedAngleDegrees`
     ///    to find a block the player *can* reach.
     /// Rope shots never pass through non-grappleable surfaces.
-    public static func aim(from origin: Vec2, at target: Vec2, in level: Level, tuning: Tuning) -> GrappleShot {
-        let range = tuning.ropeRange
+    public static func aim(from origin: Vec2, at target: Vec2, in level: Level, tuning: Tuning, range: Double? = nil) -> GrappleShot {
+        let range = range ?? tuning.ropeRange
         let aim = (target - origin).normalized
         guard aim != .zero else { return .missed(end: origin) }
 

@@ -250,9 +250,84 @@ final class SwingSimulationTests: XCTestCase {
 
     func testFireGrappleAttachesAtDistance() {
         let ceiling = Surface(bounds: AABB(x: -500, y: 500, width: 1000, height: 50), isGrappleable: true)
-        let sim = SwingSimulation(level: emptyLevel(surfaces: [ceiling]))
-        XCTAssertEqual(sim.fireGrapple(toward: Vec2(0, 1000)), .attached(anchor: Vec2(0, 500)))
+        var tuning = Tuning()
+        tuning.ropeTipSpeed = 1e9
+        let sim = SwingSimulation(level: emptyLevel(surfaces: [ceiling]), tuning: tuning)
+        sim.fireGrapple(toward: Vec2(0, 1000))
+        let events = sim.update(deltaTime: sim.fixedTimeStep)
+        XCTAssertEqual(events, [.ropeAttached(anchor: Vec2(0, 500))])
+        XCTAssertEqual(sim.rope?.anchor, Vec2(0, 500))
         XCTAssertEqual(sim.rope?.length ?? 0, 500, accuracy: 1e-9)
+    }
+
+    // MARK: Rope tip in flight ("shot of faith")
+
+    func testRopeTipTravelsBeforeAttaching() {
+        let ceiling = Surface(bounds: AABB(x: -500, y: 600, width: 1000, height: 50), isGrappleable: true)
+        let sim = SwingSimulation(level: emptyLevel(surfaces: [ceiling]))  // tip speed 3000
+        sim.fireGrapple(toward: Vec2(0, 1000))
+        for _ in 0..<12 { sim.step(sim.fixedTimeStep) }  // 0.1 s: tip is ~300 out
+        XCTAssertNil(sim.rope)
+        XCTAssertEqual(sim.shot?.traveled ?? 0, 300, accuracy: 1e-6)
+        var events: [SimEvent] = []
+        for _ in 0..<20 { events += sim.update(deltaTime: sim.fixedTimeStep) }
+        XCTAssertNotNil(sim.rope)
+        XCTAssertNil(sim.shot)
+        guard events.count == 1, case .ropeAttached(let anchor) = events[0] else { return XCTFail("expected one attach, got \(events)") }
+        XCTAssertEqual(anchor.y, 600, accuracy: 1e-6)
+    }
+
+    func testShotOfFaithFliesFullRangeThenMisses() {
+        let sim = SwingSimulation(level: emptyLevel())
+        sim.fireGrapple(toward: Vec2(1, 0), range: 1500)
+        var events: [SimEvent] = []
+        for _ in 0..<120 { events += sim.update(deltaTime: sim.fixedTimeStep) }
+        XCTAssertNil(sim.shot)
+        XCTAssertNil(sim.rope)
+        guard case .ropeMissed(let end) = events.first else { return XCTFail("expected a miss, got \(events)") }
+        XCTAssertEqual(end.x, 1500, accuracy: 1e-6)
+    }
+
+    func testScreenRangeReachesBeyondMinimumRange() {
+        let far = Surface(bounds: AABB(x: 1400, y: -100, width: 50, height: 200), isGrappleable: true)
+        var tuning = noDrag()
+        tuning.gravity = 0
+        let sim = SwingSimulation(level: emptyLevel(surfaces: [far]), tuning: tuning)
+        sim.fireGrapple(toward: Vec2(1, 0), range: 1600)
+        for _ in 0..<60 { sim.step(sim.fixedTimeStep) }
+        XCTAssertEqual(sim.rope?.anchor.x ?? 0, 1400, accuracy: 1e-6)
+    }
+
+    func testRangeNeverBelowMinimum() {
+        let sim = SwingSimulation(level: emptyLevel())
+        sim.fireGrapple(toward: Vec2(1, 0), range: 10)
+        XCTAssertEqual(sim.shot?.range ?? 0, sim.tuning.ropeRange)
+    }
+
+    func testShotClanksOffWall() {
+        let wall = Surface(bounds: AABB(x: -500, y: 300, width: 1000, height: 50), isGrappleable: false)
+        let sim = SwingSimulation(level: emptyLevel(surfaces: [wall]))
+        sim.fireGrapple(toward: Vec2(0, 1000))
+        var events: [SimEvent] = []
+        for _ in 0..<30 { events += sim.update(deltaTime: sim.fixedTimeStep) }
+        guard events.count == 1, case .ropeBlocked(let point) = events[0] else { return XCTFail("expected one clank, got \(events)") }
+        XCTAssertEqual(point.y, 300, accuracy: 1e-6)
+        XCTAssertNil(sim.rope)
+    }
+
+    func testReleaseCancelsShotInFlight() {
+        let sim = SwingSimulation(level: emptyLevel())
+        sim.fireGrapple(toward: Vec2(0, 1000))
+        sim.step(sim.fixedTimeStep)
+        sim.release()
+        XCTAssertNil(sim.shot)
+    }
+
+    func testRetractingLongRopeDoesNotSnapToRopeRange() {
+        let sim = SwingSimulation(level: emptyLevel(), tuning: noDrag())
+        sim.attachRope(anchor: Vec2(0, 1500), length: 1500)
+        sim.reel(by: -10)
+        XCTAssertEqual(sim.rope?.length ?? 0, 1490, accuracy: 1e-9)
     }
 
     func testGrappleFromStandingLiftsOffAndSwings() {
@@ -260,8 +335,9 @@ final class SwingSimulationTests: XCTestCase {
         let block = Surface(bounds: AABB(x: 300, y: 560, width: 160, height: 40), isGrappleable: true)
         let sim = SwingSimulation(level: Level(surfaces: [floor, block], spawn: Vec2(0, 16), killY: -1e9, finishX: .infinity))
         for _ in 0..<30 { sim.step(sim.fixedTimeStep) }  // settle on the floor
-        XCTAssertNotNil(sim.fireGrapple(toward: Vec2(380, 560)).anchor)
-        for _ in 0..<40 { sim.step(sim.fixedTimeStep) }  // 1/3 s
+        XCTAssertTrue(sim.fireGrapple(toward: Vec2(380, 560)))
+        for _ in 0..<70 { sim.step(sim.fixedTimeStep) }  // ~0.22 s of rope flight, then ~0.36 s attached
+        XCTAssertNotNil(sim.rope)
         XCTAssertEqual(sim.state, .playing)
         XCTAssertGreaterThan(sim.position.y, 100, "a shot from standing should lift the stickman off the platform")
         XCTAssertGreaterThan(sim.position.x, 50, "and carry him toward the anchor")
@@ -269,10 +345,14 @@ final class SwingSimulationTests: XCTestCase {
 
     func testAttachTugDoesNotSlowFastSwings() {
         let ceiling = Surface(bounds: AABB(x: -2000, y: 500, width: 4000, height: 50), isGrappleable: true)
-        let sim = SwingSimulation(level: emptyLevel(surfaces: [ceiling]))
+        var tuning = Tuning()
+        tuning.ropeTipSpeed = 1e9  // attach on the first step
+        let sim = SwingSimulation(level: emptyLevel(surfaces: [ceiling]), tuning: tuning)
         sim.velocity = Vec2(0, 2000)
         sim.fireGrapple(toward: Vec2(0, 1000))
-        XCTAssertEqual(sim.velocity.y, 2000, accuracy: 1e-9)
+        sim.step(sim.fixedTimeStep)
+        XCTAssertNotNil(sim.rope)
+        XCTAssertEqual(sim.velocity.y, 2000, accuracy: 30)  // only gravity and drag for one step
     }
 
     func testResetRestoresSpawn() {

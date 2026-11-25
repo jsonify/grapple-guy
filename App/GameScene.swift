@@ -119,6 +119,16 @@ final class GameScene: SKScene {
 
         for event in simulation.update(deltaTime: dt) {
             switch event {
+            case .ropeAttached:
+                if !hasAttachedOnce {
+                    hasAttachedOnce = true
+                    hintLabel.removeAllActions()
+                    hintLabel.run(.fadeOut(withDuration: 0.3))
+                }
+            case .ropeBlocked(let wallPoint):
+                showFailedShot(to: wallPoint, blocked: true)
+            case .ropeMissed(let end):
+                showFailedShot(to: end, blocked: false)
             case .crashed:
                 activeTouch = nil
                 stickman.setCrashed(true)
@@ -132,7 +142,7 @@ final class GameScene: SKScene {
     }
 
     private func render(dt: Double) {
-        let anchor = simulation.rope?.anchor
+        let anchor = simulation.rope?.anchor ?? simulation.shot?.tip
         stickman.update(ragdoll: simulation.ragdoll)
 
         if let anchor {
@@ -140,7 +150,7 @@ final class GameScene: SKScene {
             path.move(to: CGPoint(simulation.ragdoll.ropeHand))
             path.addLine(to: CGPoint(anchor))
             ropeNode.path = path
-            ropeNode.alpha = simulation.isRopeTaut ? 1 : 0.5
+            ropeNode.alpha = (simulation.shot != nil || simulation.isRopeTaut) ? 1 : 0.5
         } else {
             ropeNode.path = nil
         }
@@ -170,18 +180,10 @@ final class GameScene: SKScene {
 
         activeTouch = touch
         let point = touch.location(in: self)
-        switch simulation.fireGrapple(toward: Vec2(point)) {
-        case .attached:
-            if !hasAttachedOnce {
-                hasAttachedOnce = true
-                hintLabel.removeAllActions()
-                hintLabel.run(.fadeOut(withDuration: 0.3))
-            }
-        case .blocked(let wallPoint):
-            showFailedShot(to: wallPoint, blocked: true)
-        case .missed(let end):
-            showFailedShot(to: end, blocked: false)
-        }
+        let target = Vec2(point)
+        let direction = (target - simulation.position).normalized
+        let range = screenEdgeDistance(from: simulation.position, along: direction).map { $0 * tuning.ropeRangeScreenFactor }
+        simulation.fireGrapple(toward: target, range: range)
     }
 
     override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
@@ -219,7 +221,19 @@ final class GameScene: SKScene {
         cameraNode.position = CGPoint(simulation.position + Vec2(0, cameraLift))
     }
 
-    /// A rope that flashes out and clanks off the wall (blocked) or fades at the end of its range (missed),
+    /// Distance from `p` to the edge of the visible world along `direction`, or nil if `p` is off screen.
+    private func screenEdgeDistance(from p: Vec2, along direction: Vec2) -> Double? {
+        let half = Vec2(Double(size.width * cameraNode.xScale) / 2, Double(size.height * cameraNode.yScale) / 2)
+        let center = Vec2(cameraNode.position)
+        var t = Double.infinity
+        if direction.x > 1e-9 { t = min(t, (center.x + half.x - p.x) / direction.x) }
+        if direction.x < -1e-9 { t = min(t, (center.x - half.x - p.x) / direction.x) }
+        if direction.y > 1e-9 { t = min(t, (center.y + half.y - p.y) / direction.y) }
+        if direction.y < -1e-9 { t = min(t, (center.y - half.y - p.y) / direction.y) }
+        return t.isFinite && t > 0 ? t : nil
+    }
+
+    /// The rope clanking off a wall (blocked) or snapping back from the end of its range (missed),
     /// so the player can see why the shot failed.
     private func showFailedShot(to end: Vec2, blocked: Bool) {
         let path = CGMutablePath()

@@ -4,6 +4,12 @@ import Foundation
 public enum SimEvent: Equatable, Sendable {
     case crashed
     case finished(time: Double)
+    /// The flying rope tip stuck to a grappleable surface.
+    case ropeAttached(anchor: Vec2)
+    /// The flying rope tip hit a non-grappleable surface.
+    case ropeBlocked(at: Vec2)
+    /// The flying rope tip reached the end of its range without hitting anything.
+    case ropeMissed(end: Vec2)
 }
 
 /// The stickman's torso swinging on a rope (issue #6). Pure Swift, deterministic, fixed timestep.
@@ -22,6 +28,15 @@ public final class SwingSimulation {
         public var length: Double
     }
 
+    /// A rope tip in flight: launched from `origin` along `direction`, attaching to the first surface it meets.
+    public struct RopeShot: Equatable, Sendable {
+        public var origin: Vec2
+        public var direction: Vec2
+        public var traveled: Double
+        public var range: Double
+        public var tip: Vec2 { origin + direction * traveled }
+    }
+
     public var tuning: Tuning
     public let level: Level
     public let fixedTimeStep: Double
@@ -29,6 +44,8 @@ public final class SwingSimulation {
     public internal(set) var position: Vec2
     public internal(set) var velocity: Vec2
     public internal(set) var rope: Rope?
+    /// The rope tip while it is flying out, before it attaches, clanks or runs out.
+    public internal(set) var shot: RopeShot?
     public private(set) var state: State = .playing
     /// Visual body: limbs while alive, the whole figure after a crash.
     public private(set) var ragdoll: Ragdoll
@@ -36,6 +53,8 @@ public final class SwingSimulation {
     private var accumulator: Double = 0
     /// How long the current rope has been held.
     private var ropeHoldTime: Double = 0
+    /// Rope-shot events produced during steps, handed out by `update(deltaTime:)`.
+    private var pendingEvents: [SimEvent] = []
 
     public init(level: Level, tuning: Tuning = .default, fixedTimeStep: Double = 1.0 / 120.0) {
         self.level = level
@@ -55,22 +74,57 @@ public final class SwingSimulation {
         position = level.spawn
         velocity = .zero
         rope = nil
+        shot = nil
+        pendingEvents = []
         state = .playing
         elapsed = 0
         accumulator = 0
         ragdoll.reset(torso: level.spawn)
     }
 
-    /// Fires the rope toward a tapped world point.
+    /// Launches the rope tip toward a tapped world point: a "shot of faith" that flies out whether or not
+    /// anything is there. Aim assist only bends its direction toward a reachable block.
+    /// `range` overrides `tuning.ropeRange` (the scene passes a screen-relative range) but never goes below it.
+    /// Returns false if no shot was launched.
     @discardableResult
-    public func fireGrapple(toward target: Vec2) -> GrappleShot {
-        guard state == .playing else { return .missed(end: position) }
-        let shot = GrappleTargeting.aim(from: position, at: target, in: level, tuning: tuning)
-        if case .attached(let anchor) = shot {
-            attachRope(anchor: anchor, length: position.distance(to: anchor))
-            applyAttachTug(toward: anchor)
+    public func fireGrapple(toward target: Vec2, range: Double? = nil) -> Bool {
+        guard state == .playing, rope == nil else { return false }
+        let reach = max(range ?? 0, tuning.ropeRange)
+        let aim = (target - position).normalized
+        guard aim != .zero else { return false }
+        let direction: Vec2
+        switch GrappleTargeting.aim(from: position, at: target, in: level, tuning: tuning, range: reach) {
+        case .attached(let anchor):
+            direction = (anchor - position).normalized
+        case .blocked, .missed:
+            direction = aim
         }
-        return shot
+        shot = RopeShot(origin: position, direction: direction, traveled: 0, range: reach)
+        return true
+    }
+
+    /// Moves a flying rope tip; it attaches to grappleable surfaces and clanks off the rest.
+    private func advanceShot(_ dt: Double) {
+        guard var current = shot else { return }
+        let stepLength = min(tuning.ropeTipSpeed * dt, current.range - current.traveled)
+        if let hit = level.raycast(origin: current.tip, direction: current.direction, maxDistance: stepLength) {
+            shot = nil
+            if level.surfaces[hit.surfaceIndex].isGrappleable {
+                attachRope(anchor: hit.point, length: position.distance(to: hit.point))
+                applyAttachTug(toward: hit.point)
+                pendingEvents.append(.ropeAttached(anchor: hit.point))
+            } else {
+                pendingEvents.append(.ropeBlocked(at: hit.point))
+            }
+            return
+        }
+        current.traveled += stepLength
+        if current.traveled >= current.range - 1e-9 {
+            shot = nil
+            pendingEvents.append(.ropeMissed(end: current.tip))
+        } else {
+            shot = current
+        }
     }
 
     /// Lets go of the rope. Letting go of a taut rope while rising adds `releaseLift` upward;
@@ -78,6 +132,7 @@ public final class SwingSimulation {
     /// Returns true if the release earned the boost.
     @discardableResult
     public func release() -> Bool {
+        shot = nil  // letting go cancels a rope still in flight
         guard rope != nil else { return false }
         let wasTaut = isRopeTaut
         rope = nil
@@ -102,7 +157,8 @@ public final class SwingSimulation {
     public func reel(by delta: Double, momentumCarry: Double = 1) {
         guard state == .playing, var current = rope else { return }
         let oldLength = current.length
-        let newLength = min(max(oldLength + delta, tuning.minRopeLength), tuning.ropeRange)
+        // Ropes attached beyond ropeRange (screen-relative shots) may stay that long but not grow.
+        let newLength = min(max(oldLength + delta, tuning.minRopeLength), max(tuning.ropeRange, oldLength))
         guard newLength != oldLength else { return }
         let wasTaut = isRopeTaut
         current.length = newLength
@@ -146,7 +202,10 @@ public final class SwingSimulation {
         accumulator += min(max(deltaTime, 0), 0.25)
         while accumulator >= fixedTimeStep {
             accumulator -= fixedTimeStep
-            if let event = step(fixedTimeStep) { events.append(event) }
+            let event = step(fixedTimeStep)
+            events += pendingEvents
+            pendingEvents.removeAll()
+            if let event { events.append(event) }
         }
         return events
     }
@@ -162,6 +221,7 @@ public final class SwingSimulation {
     private func stepTorso(_ dt: Double) -> SimEvent? {
         guard state == .playing else { return nil }
         elapsed += dt
+        advanceShot(dt)
         retractIfHeld(dt)
 
         let gravityScale = isRopeTaut ? tuning.swingGravityMultiplier : 1
@@ -233,6 +293,7 @@ public final class SwingSimulation {
     private func crash() -> SimEvent {
         state = .crashed
         rope = nil
+        shot = nil
         ragdoll.goLimp()
         return .crashed
     }

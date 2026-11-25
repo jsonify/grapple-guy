@@ -7,8 +7,12 @@ public struct Tuning: Equatable, Codable, Sendable {
     /// Fraction of velocity lost per second.
     public var airDrag: Double = 0.1
     public var maxSpeed: Double = 3750
-    /// Furthest a rope shot can reach.
+    /// Minimum rope reach; the game stretches it to `ropeRangeScreenFactor` × the distance to the screen edge.
     public var ropeRange: Double = 840
+    /// Rope shots fly this multiple of the distance to the screen edge in the aimed direction (1.1 = 10% past it).
+    public var ropeRangeScreenFactor: Double = 1.1
+    /// How fast the rope tip flies out.
+    public var ropeTipSpeed: Double = 3000
     public var minRopeLength: Double = 45
     /// On attaching, speed toward the anchor is topped up to at least this, so a shot always yanks you into a swing.
     public var attachTugSpeed: Double = 750
