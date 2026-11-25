@@ -31,6 +31,7 @@ struct TuningPanel: View {
                 slider("Release lift", $tuning.releaseLift, 0...1000)
                 slider("Boost min angle (°)", $tuning.boostMinAngleDegrees, 0...90)
                 slider("Boost max angle (°)", $tuning.boostMaxAngleDegrees, 0...90)
+                slider("Gem pickup radius", $tuning.gemPickupRadius, 10...120)
                 slider("Limb stiffness", $tuning.limbStiffness, 0...40)
                 slider("Limb damping", $tuning.limbDamping, 0...10)
                 slider("Crash impact speed", $tuning.crashImpactSpeed, 200...4000)

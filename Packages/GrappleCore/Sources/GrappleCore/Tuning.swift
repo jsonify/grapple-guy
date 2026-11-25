@@ -23,6 +23,8 @@ public struct Tuning: Equatable, Codable, Sendable {
     /// When the direct shot hits a wall, the fan widens to this many degrees.
     public var aimAssistBlockedAngleDegrees: Double = 35
     public var torsoRadius: Double = 16
+    /// Gems are collected when the torso comes this close.
+    public var gemPickupRadius: Double = 40
     /// How strongly arms and legs are pulled back toward their rest pose while alive (per second).
     public var limbStiffness: Double = 10
     /// Fraction of limb speed lost per second.

@@ -14,6 +14,10 @@ final class GameScene: SKScene {
     private let timerLabel = SKLabelNode(fontNamed: "Menlo")
     private let hintLabel = SKLabelNode(fontNamed: "Menlo-Bold")
     private var hasAttachedOnce = false
+    private var gemNodes: [SKShapeNode] = []
+    private var checkpointNodes: [SKShapeNode] = []
+    /// 0…1 screen-shake strength, decays every frame.
+    private var shake: Double = 0
 
     private var lastUpdate: TimeInterval?
     private var activeTouch: UITouch?
@@ -62,6 +66,7 @@ final class GameScene: SKScene {
         statusLabel.verticalAlignmentMode = .center
         cameraNode.addChild(statusLabel)
 
+        statusLabel.numberOfLines = 0
         timerLabel.fontSize = 20
         timerLabel.fontColor = Palette.stickman
         timerLabel.horizontalAlignmentMode = .left
@@ -73,7 +78,7 @@ final class GameScene: SKScene {
         hintLabel.numberOfLines = 2
         hintLabel.horizontalAlignmentMode = .center
         hintLabel.verticalAlignmentMode = .center
-        hintLabel.text = "Touch & hold near an ORANGE block to swing\nLet go to fly · reach the GREEN line"
+        hintLabel.text = "Touch to fire the rope · hold to pull · let go to fly\nFewer shots = better score · grab gems · reach the GREEN line"
         hintLabel.run(.repeatForever(.sequence([.fadeAlpha(to: 0.45, duration: 0.8), .fadeAlpha(to: 1, duration: 0.8)])))
         cameraNode.addChild(hintLabel)
 
@@ -109,6 +114,47 @@ final class GameScene: SKScene {
         finish.fillColor = Palette.finish.withAlphaComponent(0.5)
         finish.strokeColor = .clear
         world.addChild(finish)
+
+        for gem in simulation.level.gems {
+            let path = CGMutablePath()
+            path.move(to: CGPoint(x: 0, y: 16))
+            path.addLine(to: CGPoint(x: 12, y: 0))
+            path.addLine(to: CGPoint(x: 0, y: -16))
+            path.addLine(to: CGPoint(x: -12, y: 0))
+            path.closeSubpath()
+            let node = SKShapeNode(path: path)
+            node.fillColor = Palette.gem
+            node.strokeColor = Palette.gem.withAlphaComponent(0.5)
+            node.lineWidth = 4
+            node.position = CGPoint(gem)
+            world.addChild(node)
+            gemNodes.append(node)
+        }
+
+        for checkpoint in simulation.level.checkpoints {
+            let path = CGMutablePath()
+            path.move(to: .zero)
+            path.addLine(to: CGPoint(x: 0, y: 90))
+            path.addLine(to: CGPoint(x: 36, y: 76))
+            path.addLine(to: CGPoint(x: 0, y: 62))
+            let node = SKShapeNode(path: path)
+            node.strokeColor = Palette.solid
+            node.lineWidth = 4
+            node.lineCap = .round
+            node.lineJoin = .round
+            node.position = CGPoint(x: checkpoint.position.x, y: checkpoint.position.y - simulation.tuning.torsoRadius)
+            world.addChild(node)
+            checkpointNodes.append(node)
+        }
+    }
+
+    private func resetLevelDecorations() {
+        for node in gemNodes {
+            node.removeAllActions()
+            node.alpha = 1
+            node.setScale(1)
+        }
+        for node in checkpointNodes { node.strokeColor = Palette.solid }
     }
 
     // MARK: - Loop
@@ -129,13 +175,20 @@ final class GameScene: SKScene {
                 showFailedShot(to: wallPoint, blocked: true)
             case .ropeMissed(let end):
                 showFailedShot(to: end, blocked: false)
+            case .gemCollected(let index):
+                gemNodes[index].run(.group([.scale(to: 2.2, duration: 0.25), .fadeOut(withDuration: 0.25)]))
+            case .checkpointReached(let index):
+                checkpointNodes[index].strokeColor = Palette.finish
             case .crashed:
                 activeTouch = nil
+                shake = 1
                 stickman.setCrashed(true)
-                statusLabel.text = "CRASHED · tap to retry"
-            case .finished(let time):
+                statusLabel.text = simulation.activeCheckpoint == nil
+                    ? "CRASHED · tap to retry"
+                    : "CRASHED · tap to respawn at checkpoint"
+            case .finished:
                 activeTouch = nil
-                statusLabel.text = String(format: "FINISHED in %.2fs · tap to restart", time)
+                showFinish()
             }
         }
         render(dt: dt)
@@ -155,7 +208,19 @@ final class GameScene: SKScene {
             ropeNode.path = nil
         }
 
-        timerLabel.text = String(format: "%.2f", simulation.elapsed)
+        timerLabel.text = String(format: "%.2f   Strokes %d / par %d   ◆ %d/%d",
+                                 simulation.elapsed, simulation.strokes, simulation.level.par,
+                                 simulation.collectedGems.count, simulation.level.gems.count)
+
+        // Shake the world, not the camera, so the HUD stays still.
+        if shake > 0.01 {
+            let amount = 16 * shake
+            world.position = CGPoint(x: Double.random(in: -amount...amount), y: Double.random(in: -amount...amount))
+            shake *= exp(-7 * dt)
+        } else if world.position != .zero {
+            shake = 0
+            world.position = .zero
+        }
 
         // Camera follows with look-ahead in the direction of travel; after a crash it follows the tumbling body.
         let crashed = simulation.state == .crashed
@@ -173,8 +238,13 @@ final class GameScene: SKScene {
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
         guard activeTouch == nil, let touch = touches.first else { return }
 
-        guard simulation.state == .playing else {
-            restart()
+        switch simulation.state {
+        case .playing: break
+        case .crashed:
+            respawnAfterCrash()
+            return
+        case .finished:
+            restartLevel()
             return
         }
 
@@ -214,11 +284,39 @@ final class GameScene: SKScene {
         ]))
     }
 
-    private func restart() {
+    /// Restarts the whole level (the ↺ button, or tapping after finishing).
+    func restartLevel() {
+        activeTouch = nil
         simulation.reset()
+        resetLevelDecorations()
+        afterRespawn()
+    }
+
+    private func respawnAfterCrash() {
+        simulation.respawn()
+        afterRespawn()
+    }
+
+    private func afterRespawn() {
         stickman.setCrashed(false)
         statusLabel.text = nil
         cameraNode.position = CGPoint(simulation.position + Vec2(0, cameraLift))
+    }
+
+    private func showFinish() {
+        guard let result = simulation.runResult else { return }
+        let record = ProgressStore.save(result, for: simulation.level.name)
+        let stars = Star.allCases.map { result.stars.contains($0) ? "★" : "☆" }.joined()
+        var lines = [
+            "\(stars)  \(result.golfTerm)",
+            "\(result.strokes) strokes · par \(result.par) · ◆ \(result.gemsCollected)/\(result.gemsTotal) · "
+                + String(format: "%.2fs", result.time),
+        ]
+        if let best = record.bestStrokes {
+            lines.append("Best: \(best) strokes · \(record.stars.count)/3 stars earned")
+        }
+        lines.append("Tap to play again")
+        statusLabel.text = lines.joined(separator: "\n")
     }
 
     /// Distance from `p` to the edge of the visible world along `direction`, or nil if `p` is off screen.

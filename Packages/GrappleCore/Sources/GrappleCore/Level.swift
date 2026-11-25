@@ -1,5 +1,20 @@
+/// Crossing `position.x` activates it; crashing afterwards respawns at `position`.
+public struct Checkpoint: Codable, Equatable, Sendable {
+    public var position: Vec2
+
+    public init(position: Vec2) {
+        self.position = position
+    }
+}
+
 public struct Level: Codable, Sendable {
     public var name: String
+    /// Target number of rope shots (strokes) for the par star.
+    public var par: Int
+    /// Collectible gem positions.
+    public var gems: [Vec2]
+    /// Sorted left to right.
+    public var checkpoints: [Checkpoint]
     public var surfaces: [Surface]
     public var spawn: Vec2
     /// Falling below this height is a crash.
@@ -7,8 +22,12 @@ public struct Level: Codable, Sendable {
     /// Crossing this x position finishes the level.
     public var finishX: Double
 
-    public init(surfaces: [Surface], spawn: Vec2, killY: Double, finishX: Double, name: String = "") {
+    public init(surfaces: [Surface], spawn: Vec2, killY: Double, finishX: Double, name: String = "",
+                par: Int = 0, gems: [Vec2] = [], checkpoints: [Checkpoint] = []) {
         self.name = name
+        self.par = par
+        self.gems = gems
+        self.checkpoints = checkpoints.sorted { $0.position.x < $1.position.x }
         self.surfaces = surfaces
         self.spawn = spawn
         self.killY = killY

@@ -10,6 +10,8 @@ public enum SimEvent: Equatable, Sendable {
     case ropeBlocked(at: Vec2)
     /// The flying rope tip reached the end of its range without hitting anything.
     case ropeMissed(end: Vec2)
+    case gemCollected(index: Int)
+    case checkpointReached(index: Int)
 }
 
 /// The stickman's torso swinging on a rope (issue #6). Pure Swift, deterministic, fixed timestep.
@@ -53,8 +55,27 @@ public final class SwingSimulation {
     private var accumulator: Double = 0
     /// How long the current rope has been held.
     private var ropeHoldTime: Double = 0
-    /// Rope-shot events produced during steps, handed out by `update(deltaTime:)`.
+    /// Events produced during steps, handed out by `update(deltaTime:)`.
     private var pendingEvents: [SimEvent] = []
+
+    /// Rope shots fired this run, including blocked and missed ones (issue #18).
+    public private(set) var strokes = 0
+    /// Indices into `level.gems`.
+    public private(set) var collectedGems: Set<Int> = []
+    /// Index into `level.checkpoints` of the last one reached.
+    public private(set) var activeCheckpoint: Int?
+
+    /// Where a crash respawns: the last checkpoint reached, or the level spawn.
+    public var respawnPoint: Vec2 {
+        activeCheckpoint.map { level.checkpoints[$0].position } ?? level.spawn
+    }
+
+    /// The finished run's score, once the level is finished.
+    public var runResult: RunResult? {
+        guard case .finished(let time) = state else { return nil }
+        return RunResult(strokes: strokes, time: time, gemsCollected: collectedGems.count,
+                         gemsTotal: level.gems.count, par: level.par)
+    }
 
     public init(level: Level, tuning: Tuning = .default, fixedTimeStep: Double = 1.0 / 120.0) {
         self.level = level
@@ -70,7 +91,11 @@ public final class SwingSimulation {
         return position.distance(to: rope.anchor) >= rope.length - 0.5
     }
 
+    /// Restarts the whole level: strokes, time, gems and checkpoints all reset.
     public func reset() {
+        strokes = 0
+        collectedGems = []
+        activeCheckpoint = nil
         position = level.spawn
         velocity = .zero
         rope = nil
@@ -80,6 +105,18 @@ public final class SwingSimulation {
         elapsed = 0
         accumulator = 0
         ragdoll.reset(torso: level.spawn)
+    }
+
+    /// After a crash: back to the last checkpoint. Strokes, time and gems carry over, so a crash costs strokes.
+    public func respawn() {
+        position = respawnPoint
+        velocity = .zero
+        rope = nil
+        shot = nil
+        pendingEvents = []
+        accumulator = 0
+        state = .playing
+        ragdoll.reset(torso: position)
     }
 
     /// Launches the rope tip toward a tapped world point: a "shot of faith" that flies out whether or not
@@ -100,6 +137,7 @@ public final class SwingSimulation {
             direction = aim
         }
         shot = RopeShot(origin: position, direction: direction, traveled: 0, range: reach)
+        strokes += 1
         return true
     }
 
@@ -234,12 +272,30 @@ public final class SwingSimulation {
 
         if let event = resolveCollisions(dt) { return event }
         if position.y < level.killY { return crash() }
+        collectGems()
+        reachCheckpoints()
         if position.x >= level.finishX {
             state = .finished(time: elapsed)
             rope = nil
             return .finished(time: elapsed)
         }
         return nil
+    }
+
+    private func collectGems() {
+        for (index, gem) in level.gems.enumerated()
+        where !collectedGems.contains(index) && position.distance(to: gem) <= tuning.gemPickupRadius {
+            collectedGems.insert(index)
+            pendingEvents.append(.gemCollected(index: index))
+        }
+    }
+
+    private func reachCheckpoints() {
+        for (index, checkpoint) in level.checkpoints.enumerated()
+        where position.x >= checkpoint.position.x && index > (activeCheckpoint ?? -1) {
+            activeCheckpoint = index
+            pendingEvents.append(.checkpointReached(index: index))
+        }
     }
 
     private func applyRopeConstraint() {

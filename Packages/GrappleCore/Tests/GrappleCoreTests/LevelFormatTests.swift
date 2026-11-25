@@ -17,7 +17,7 @@ final class LevelFormatTests: XCTestCase {
     """
 
     private func level(_ chunks: String, library: String? = nil) throws -> Level {
-        let levelJSON = #"{ "name": "T", "killY": -500, "chunks": \#(chunks) }"#
+        let levelJSON = #"{ "name": "T", "par": 5, "killY": -500, "chunks": \#(chunks) }"#
         return try LevelBuilder.load(levelData: data(levelJSON), chunkData: data(library ?? chunksJSON))
     }
 
@@ -31,6 +31,31 @@ final class LevelFormatTests: XCTestCase {
         XCTAssertEqual(built.surfaces[1], Surface(bounds: AABB(x: 600, y: 500, width: 160, height: 40), isGrappleable: true))
         XCTAssertEqual(built.surfaces[2], Surface(bounds: AABB(x: 1000, y: 560, width: 160, height: 40), isGrappleable: true))
         XCTAssertFalse(built.surfaces[0].isGrappleable)
+    }
+
+    func testGemsCheckpointsAndParAreLoaded() throws {
+        let library = #"""
+        [
+          { "id": "start", "width": 500, "elements": [ { "type": "spawn", "at": [200, 40] } ] },
+          { "id": "stuff", "width": 400, "elements": [
+              { "type": "gem", "at": [100, 300] },
+              { "type": "checkpoint", "at": [50, 20] } ] },
+          { "id": "end", "width": 300, "elements": [ { "type": "finish", "x": 50 } ] }
+        ]
+        """#
+        let built = try level(#"[{"id": "start"}, {"id": "stuff", "dy": 10}, {"id": "stuff"}, {"id": "end"}]"#, library: library)
+        XCTAssertEqual(built.par, 5)
+        XCTAssertEqual(built.gems, [Vec2(600, 310), Vec2(1000, 300)])
+        XCTAssertEqual(built.checkpoints.map(\.position), [Vec2(550, 30), Vec2(950, 20)])
+    }
+
+    func testParIsRequiredAndPositive() {
+        let noPar = #"{ "name": "T", "killY": -500, "chunks": [{"id": "start"}, {"id": "end"}] }"#
+        XCTAssertThrowsError(try LevelBuilder.load(levelData: data(noPar), chunkData: data(chunksJSON)))
+        let zeroPar = #"{ "name": "T", "par": 0, "killY": -500, "chunks": [{"id": "start"}, {"id": "end"}] }"#
+        XCTAssertThrowsError(try LevelBuilder.load(levelData: data(zeroPar), chunkData: data(chunksJSON))) {
+            XCTAssertEqual($0 as? LevelLoadError, .invalidPar)
+        }
     }
 
     func testUnknownChunkIsReported() {

@@ -21,6 +21,14 @@ struct ContentView: View {
                 if showTuning {
                     TuningPanel(tuning: $tuning)
                 }
+                Button {
+                    scene.restartLevel()
+                } label: {
+                    Image(systemName: "arrow.counterclockwise")
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(.black.opacity(0.7))
+                .accessibilityLabel("Restart level")
                 Button(showTuning ? "Done" : "Tune") { showTuning.toggle() }
                     .buttonStyle(.borderedProminent)
                     .tint(.black.opacity(0.7))

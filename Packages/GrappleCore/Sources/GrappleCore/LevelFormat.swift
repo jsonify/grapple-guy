@@ -16,6 +16,10 @@ public enum ChunkElement: Equatable, Sendable, Decodable {
     case spawn(Vec2)
     /// Crossing this x finishes the level. Exactly one per level. JSON: `{"type": "finish", "x": 100}`
     case finish(x: Double)
+    /// A collectible. JSON: `{"type": "gem", "at": [x, y]}`
+    case gem(Vec2)
+    /// Crossing its x activates it; crashes then respawn here. JSON: `{"type": "checkpoint", "at": [x, y]}`
+    case checkpoint(Vec2)
 
     private enum CodingKeys: String, CodingKey { case type, rect, at, x }
 
@@ -25,16 +29,21 @@ public enum ChunkElement: Equatable, Sendable, Decodable {
         switch type {
         case "solid": self = .solid(try Self.decodeRect(c))
         case "grapple": self = .grapple(try Self.decodeRect(c))
-        case "spawn":
-            let at = try c.decode([Double].self, forKey: .at)
-            guard at.count == 2 else {
-                throw DecodingError.dataCorruptedError(forKey: .at, in: c, debugDescription: "spawn \"at\" must be [x, y]")
-            }
-            self = .spawn(Vec2(at[0], at[1]))
+        case "spawn": self = .spawn(try Self.decodePoint(c))
+        case "gem": self = .gem(try Self.decodePoint(c))
+        case "checkpoint": self = .checkpoint(try Self.decodePoint(c))
         case "finish": self = .finish(x: try c.decode(Double.self, forKey: .x))
         default:
             throw DecodingError.dataCorruptedError(forKey: .type, in: c, debugDescription: "unknown element type \"\(type)\"")
         }
+    }
+
+    private static func decodePoint(_ c: KeyedDecodingContainer<CodingKeys>) throws -> Vec2 {
+        let at = try c.decode([Double].self, forKey: .at)
+        guard at.count == 2 else {
+            throw DecodingError.dataCorruptedError(forKey: .at, in: c, debugDescription: "\"at\" must be [x, y]")
+        }
+        return Vec2(at[0], at[1])
     }
 
     private static func decodeRect(_ c: KeyedDecodingContainer<CodingKeys>) throws -> AABB {
@@ -73,12 +82,15 @@ public struct ChunkPlacement: Equatable, Sendable, Decodable {
 
 public struct LevelDefinition: Equatable, Sendable, Decodable {
     public var name: String
+    /// Target strokes (rope shots) for the par star.
+    public var par: Int
     /// Falling below this height is a crash.
     public var killY: Double
     public var chunks: [ChunkPlacement]
 
-    public init(name: String, killY: Double, chunks: [ChunkPlacement]) {
+    public init(name: String, par: Int, killY: Double, chunks: [ChunkPlacement]) {
         self.name = name
+        self.par = par
         self.killY = killY
         self.chunks = chunks
     }
@@ -93,6 +105,7 @@ public enum LevelLoadError: Error, Equatable {
     case multipleSpawns
     case missingFinish
     case multipleFinishes
+    case invalidPar
 }
 
 public struct ChunkLibrary: Sendable {
@@ -120,7 +133,10 @@ public enum LevelBuilder {
     /// Lays the chunks out left to right and resolves them into a playable `Level`.
     public static func build(_ definition: LevelDefinition, library: ChunkLibrary) throws -> Level {
         guard !definition.chunks.isEmpty else { throw LevelLoadError.emptyLevel }
+        guard definition.par > 0 else { throw LevelLoadError.invalidPar }
         var surfaces: [Surface] = []
+        var gems: [Vec2] = []
+        var checkpoints: [Checkpoint] = []
         var spawns: [Vec2] = []
         var finishes: [Double] = []
         var x = 0.0
@@ -134,6 +150,8 @@ public enum LevelBuilder {
                 case .grapple(let box): surfaces.append(Surface(bounds: box.offset(by: offset), isGrappleable: true))
                 case .spawn(let point): spawns.append(point + offset)
                 case .finish(let finishX): finishes.append(finishX + offset.x)
+                case .gem(let point): gems.append(point + offset)
+                case .checkpoint(let point): checkpoints.append(Checkpoint(position: point + offset))
                 }
             }
             x += chunk.width
@@ -143,7 +161,8 @@ public enum LevelBuilder {
         guard spawns.count == 1 else { throw LevelLoadError.multipleSpawns }
         guard let finishX = finishes.first else { throw LevelLoadError.missingFinish }
         guard finishes.count == 1 else { throw LevelLoadError.multipleFinishes }
-        return Level(surfaces: surfaces, spawn: spawn, killY: definition.killY, finishX: finishX, name: definition.name)
+        return Level(surfaces: surfaces, spawn: spawn, killY: definition.killY, finishX: finishX,
+                     name: definition.name, par: definition.par, gems: gems, checkpoints: checkpoints)
     }
 
     /// Decodes a level file and a chunk library and builds the level.

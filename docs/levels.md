@@ -30,6 +30,8 @@ Coordinates are in world points, with **y pointing up** and the start platform's
 | Solid block | `{"type": "solid", "rect": [x, y, w, h]}` | Gray. Blocks the stickman and the rope. |
 | Spawn | `{"type": "spawn", "at": [x, y]}` | Exactly one per level. |
 | Finish line | `{"type": "finish", "x": 100}` | Exactly one per level. |
+| Gem | `{"type": "gem", "at": [x, y]}` | Collect all of them for a star. |
+| Checkpoint | `{"type": "checkpoint", "at": [x, y]}` | Activates when the stickman passes its x. Crashes then respawn at `at`, so put it on a platform. |
 
 `rect` is `[left, bottom, width, height]`.
 
@@ -38,6 +40,7 @@ Coordinates are in world points, with **y pointing up** and the start platform's
 ```json
 {
   "name": "Test Room",
+  "par": 12,
   "killY": -500,
   "chunks": [
     { "id": "start" },
@@ -50,7 +53,10 @@ Coordinates are in world points, with **y pointing up** and the start platform's
 
 - Chunks are laid out left to right. Each one starts where the previous one's `width` ends.
 - `dy` (optional) shifts that one placement up (positive) or down (negative).
+- `par` (required, > 0): the target number of strokes. Every rope shot is a stroke, and finishing at or under par earns a star.
 - `killY`: falling below this height is a crash.
+
+**Stars:** finish the level, finish at or under par, and collect every gem. A level with no gems gives the gem star automatically.
 
 ## Checking your work
 
