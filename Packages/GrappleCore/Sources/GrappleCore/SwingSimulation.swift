@@ -66,20 +66,27 @@ public final class SwingSimulation {
         return anchor
     }
 
-    /// Lets go of the rope. Returns true if the timing earned a release boost (issue #15).
+    /// Lets go of the rope. Letting go of a taut rope while rising adds `releaseLift` upward;
+    /// a fast release within the angle window also adds a boost along the motion (issue #15).
+    /// Returns true if the release earned the boost.
     @discardableResult
     public func release() -> Bool {
         guard rope != nil else { return false }
         let wasTaut = isRopeTaut
         rope = nil
         guard state == .playing, wasTaut, velocity.y > 0 else { return false }
+
         let speed = velocity.length
-        guard speed >= tuning.boostMinSpeed else { return false }
         let angle = atan2(velocity.y, abs(velocity.x)) * 180 / .pi
-        guard angle >= tuning.boostMinAngleDegrees, angle <= tuning.boostMaxAngleDegrees else { return false }
-        velocity = velocity + velocity / speed * tuning.boostImpulse
+        let boosted = speed >= tuning.boostMinSpeed
+            && angle >= tuning.boostMinAngleDegrees
+            && angle <= tuning.boostMaxAngleDegrees
+        if boosted {
+            velocity = velocity + velocity / speed * tuning.boostImpulse
+        }
+        velocity.y += tuning.releaseLift
         clampSpeed()
-        return true
+        return boosted
     }
 
     /// Changes rope length by `delta` (negative reels in), clamped to [minRopeLength, ropeRange] (issue #14).

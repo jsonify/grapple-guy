@@ -11,6 +11,7 @@ final class SwingSimulationTests: XCTestCase {
         t.airDrag = 0
         t.maxSpeed = 1e6
         t.swingGravityMultiplier = 1
+        t.releaseLift = 0
         return t
     }
 
@@ -140,6 +141,20 @@ final class SwingSimulationTests: XCTestCase {
         XCTAssertFalse(sim.release())
     }
 
+    func testRisingReleaseAddsLift() {
+        let sim = tautSwing(velocity: Vec2(100, 50))  // too slow for the boost
+        sim.tuning.releaseLift = 200
+        XCTAssertFalse(sim.release())
+        XCTAssertEqual(sim.velocity, Vec2(100, 250))
+    }
+
+    func testFallingReleaseGetsNoLift() {
+        let sim = tautSwing(velocity: Vec2(100, -50))
+        sim.tuning.releaseLift = 200
+        sim.release()
+        XCTAssertEqual(sim.velocity, Vec2(100, -50))
+    }
+
     func testReleaseDetachesRope() {
         let sim = SwingSimulation(level: emptyLevel(), tuning: noDrag())
         sim.attachRope(anchor: Vec2(0, 500), length: 500)
@@ -168,7 +183,7 @@ final class SwingSimulationTests: XCTestCase {
         let floor = Surface(bounds: AABB(x: -500, y: -50, width: 1000, height: 50), isGrappleable: false)
         let sim = SwingSimulation(level: emptyLevel(surfaces: [floor]))
         sim.position = Vec2(0, 100)
-        sim.velocity = Vec2(0, -2000)
+        sim.velocity = Vec2(0, -(sim.tuning.crashImpactSpeed + 500))
         for _ in 0..<60 { sim.step(sim.fixedTimeStep) }
         XCTAssertEqual(sim.state, .crashed)
     }

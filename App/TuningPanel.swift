@@ -22,6 +22,7 @@ struct TuningPanel: View {
                 slider("Reel ratio", $tuning.reelRatio, 0...5)
                 slider("Boost min speed", $tuning.boostMinSpeed, 0...2000)
                 slider("Boost impulse", $tuning.boostImpulse, 0...1500)
+                slider("Release lift", $tuning.releaseLift, 0...1000)
                 slider("Boost min angle (°)", $tuning.boostMinAngleDegrees, 0...90)
                 slider("Boost max angle (°)", $tuning.boostMaxAngleDegrees, 0...90)
                 slider("Crash impact speed", $tuning.crashImpactSpeed, 200...4000)
