@@ -108,3 +108,76 @@ final class RagdollTests: XCTestCase {
         XCTAssertEqual(sim.ragdoll[.pelvis].y, 5, accuracy: 1e-9)
     }
 }
+
+final class FlipTests: XCTestCase {
+    private let empty = Level(surfaces: [], spawn: .zero, killY: -1e9, finishX: .infinity)
+    private let dt = 1.0 / 120.0
+
+    func testFlipTurnsBodyUpsideDownHalfwayAndBackUpright() {
+        var ragdoll = Ragdoll(torso: .zero)
+        ragdoll.startFlip(direction: -1, duration: 0.5)
+        for _ in 0..<30 {  // halfway
+            ragdoll.step(dt: dt, torso: .zero, velocity: .zero, ropeAnchor: nil, level: empty, tuning: .default)
+        }
+        XCTAssertTrue(ragdoll.isFlipping)
+        XCTAssertLessThan(ragdoll.up.y, -0.9, "body should be upside down halfway through")
+        XCTAssertLessThan(ragdoll[.head].y, ragdoll[.pelvis].y)
+        for _ in 0..<40 {
+            ragdoll.step(dt: dt, torso: .zero, velocity: .zero, ropeAnchor: nil, level: empty, tuning: .default)
+        }
+        XCTAssertFalse(ragdoll.isFlipping)
+        XCTAssertGreaterThan(ragdoll.up.y, 0.9)
+    }
+
+    func testCatchingRopeEndsFlip() {
+        var ragdoll = Ragdoll(torso: .zero)
+        ragdoll.startFlip(direction: 1, duration: 0.5)
+        ragdoll.step(dt: dt, torso: .zero, velocity: .zero, ropeAnchor: Vec2(0, 500), level: empty, tuning: .default)
+        XCTAssertFalse(ragdoll.isFlipping)
+    }
+
+    func testCrashEndsFlip() {
+        var ragdoll = Ragdoll(torso: .zero)
+        ragdoll.startFlip(direction: 1, duration: 0.5)
+        ragdoll.goLimp()
+        XCTAssertFalse(ragdoll.isFlipping)
+    }
+
+    // MARK: Release triggers
+
+    private func fastRelease(velocity: Vec2, chance: Double, seed: UInt64 = 1) -> SwingSimulation {
+        var tuning = Tuning()
+        tuning.flipChance = chance
+        tuning.flipMinSpeed = 300
+        tuning.releaseLift = 0
+        let sim = SwingSimulation(level: empty, tuning: tuning, seed: seed)
+        sim.position = .zero
+        sim.velocity = velocity
+        sim.attachRope(anchor: Vec2(0, 500), length: 500)
+        sim.release()
+        return sim
+    }
+
+    func testBoostedReleaseAlwaysFrontFlips() {
+        let sim = fastRelease(velocity: Vec2(600, 300), chance: 0)  // boosted: fast, 27° upward
+        XCTAssertTrue(sim.ragdoll.isFlipping)
+        XCTAssertEqual(sim.ragdoll.flipDirection, -1, "moving right, a front flip turns clockwise")
+    }
+
+    func testUnboostedReleaseFlipsOnlyByChance() {
+        // 80° upward is outside the boost window.
+        XCTAssertFalse(fastRelease(velocity: Vec2(100, 600), chance: 0).ragdoll.isFlipping)
+        XCTAssertTrue(fastRelease(velocity: Vec2(100, 600), chance: 1).ragdoll.isFlipping)
+    }
+
+    func testSlowReleaseNeverFlips() {
+        XCTAssertFalse(fastRelease(velocity: Vec2(50, 100), chance: 1).ragdoll.isFlipping)
+    }
+
+    func testSameSeedSameFlips() {
+        let a = (0..<20).map { fastRelease(velocity: Vec2(100, 600), chance: 0.5, seed: UInt64($0)).ragdoll.flipDirection }
+        let b = (0..<20).map { fastRelease(velocity: Vec2(100, 600), chance: 0.5, seed: UInt64($0)).ragdoll.flipDirection }
+        XCTAssertEqual(a, b)
+        XCTAssertTrue(a.contains(nil) && (a.contains(1) || a.contains(-1)), "chance 0.5 should give a mix")
+    }
+}

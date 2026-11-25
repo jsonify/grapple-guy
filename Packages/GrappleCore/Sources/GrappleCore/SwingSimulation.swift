@@ -53,6 +53,8 @@ public final class SwingSimulation {
     public private(set) var ragdoll: Ragdoll
     public private(set) var elapsed: Double = 0
     private var accumulator: Double = 0
+    /// Drives cosmetic randomness (flips); seeded so tests are repeatable.
+    private var random: SeededRandom
     /// How long the current rope has been held.
     private var ropeHoldTime: Double = 0
     /// Events produced during steps, handed out by `update(deltaTime:)`.
@@ -77,7 +79,9 @@ public final class SwingSimulation {
                          gemsTotal: level.gems.count, par: level.par)
     }
 
-    public init(level: Level, tuning: Tuning = .default, fixedTimeStep: Double = 1.0 / 120.0) {
+    public init(level: Level, tuning: Tuning = .default, fixedTimeStep: Double = 1.0 / 120.0,
+                seed: UInt64 = UInt64.random(in: 0...UInt64.max)) {
+        random = SeededRandom(seed: seed)
         self.level = level
         self.tuning = tuning
         self.fixedTimeStep = fixedTimeStep
@@ -186,7 +190,19 @@ public final class SwingSimulation {
         }
         velocity.y += tuning.releaseLift
         clampSpeed()
+        maybeFlip(boosted: boosted)
         return boosted
+    }
+
+    /// Spider-Man style: a fast upward release sometimes flips; a boosted one always front-flips.
+    /// Purely cosmetic: only the ragdoll rotates.
+    private func maybeFlip(boosted: Bool) {
+        guard velocity.length >= tuning.flipMinSpeed else { return }
+        guard boosted || Double.random(in: 0..<1, using: &random) < tuning.flipChance else { return }
+        let front = boosted || Bool.random(using: &random)
+        let travel: Double = velocity.x >= 0 ? 1 : -1
+        // Moving right, a front flip turns clockwise (-1) and a back flip counter-clockwise (+1).
+        ragdoll.startFlip(direction: front ? -travel : travel, duration: tuning.flipDuration)
     }
 
     /// Changes rope length by `delta` (negative reels in), clamped to [minRopeLength, ropeRange].

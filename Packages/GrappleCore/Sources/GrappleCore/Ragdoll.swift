@@ -42,6 +42,19 @@ public struct Ragdoll: Sendable {
     /// Smoothed direction from pelvis to head while alive.
     public private(set) var up = Vec2(0, 1)
 
+    /// A cosmetic airborne flip: the body rotates a full turn and tucks; the torso path is unaffected.
+    struct Flip: Sendable {
+        var startUp: Vec2
+        /// +1 rotates counter-clockwise, -1 clockwise.
+        var direction: Double
+        var duration: Double
+        var elapsed: Double = 0
+    }
+    private var flip: Flip?
+    public var isFlipping: Bool { flip != nil }
+    /// +1 counter-clockwise, -1 clockwise, nil when not flipping.
+    public var flipDirection: Double? { flip?.direction }
+
     public init(torso: Vec2) {
         points = Array(repeating: torso, count: Joint.allCases.count)
         previous = points
@@ -55,25 +68,48 @@ public struct Ragdoll: Sendable {
 
     public mutating func reset(torso: Vec2) {
         isLimp = false
+        flip = nil
         up = Vec2(0, 1)
-        points = restPose(torso: torso, up: up, ropeAnchor: nil)
+        points = restPose(torso: torso, up: up, ropeAnchor: nil, tucked: false)
         previous = points
     }
 
     /// Releases every pin. Pinned points were moved with the torso each step, so their momentum carries over.
     public mutating func goLimp() {
         isLimp = true
+        flip = nil
+    }
+
+    /// Starts a full-turn flip. `direction`: +1 counter-clockwise, -1 clockwise.
+    public mutating func startFlip(direction: Double, duration: Double) {
+        guard !isLimp, duration > 0 else { return }
+        flip = Flip(startUp: up, direction: direction >= 0 ? 1 : -1, duration: duration)
     }
 
     public mutating func step(dt: Double, torso: Vec2, velocity: Vec2, ropeAnchor: Vec2?, level: Level, tuning: Tuning) {
         if !isLimp {
-            // Hang toward the anchor on a rope; otherwise stay mostly upright, leaning into motion.
-            let targetUp = ropeAnchor.map { ($0 - torso).normalized } ?? Vec2(velocity.x * 0.0004, 1).normalized
-            let blended = (up + (targetUp - up) * min(1, 12 * dt)).normalized
-            up = blended == .zero ? Vec2(0, 1) : blended
+            if ropeAnchor != nil { flip = nil }  // catching a rope ends a flip
+            if var current = flip {
+                current.elapsed += dt
+                if current.elapsed >= current.duration {
+                    flip = nil
+                    up = current.startUp
+                } else {
+                    let t = current.elapsed / current.duration
+                    let eased = t * t * (3 - 2 * t)
+                    up = current.startUp.rotated(by: current.direction * 2 * .pi * eased)
+                    flip = current
+                }
+            }
+            if flip == nil {
+                // Hang toward the anchor on a rope; otherwise stay mostly upright, leaning into motion.
+                let targetUp = ropeAnchor.map { ($0 - torso).normalized } ?? Vec2(velocity.x * 0.0004, 1).normalized
+                let blended = (up + (targetUp - up) * min(1, 12 * dt)).normalized
+                up = blended == .zero ? Vec2(0, 1) : blended
+            }
         }
 
-        let pose = restPose(torso: torso, up: up, ropeAnchor: ropeAnchor)
+        let pose = restPose(torso: torso, up: up, ropeAnchor: ropeAnchor, tucked: flip != nil)
         let pinned = pinnedMask(roped: ropeAnchor != nil)
         let damping = max(0, 1 - tuning.limbDamping * dt)
         let gravityStep = Vec2(0, -tuning.gravity * dt * dt)
@@ -110,8 +146,10 @@ public struct Ragdoll: Sendable {
     }
 
     /// Target position of every joint for a body centered on `torso`, pointing along `up`.
-    func restPose(torso: Vec2, up: Vec2, ropeAnchor: Vec2?) -> [Vec2] {
+    func restPose(torso: Vec2, up: Vec2, ropeAnchor: Vec2?, tucked: Bool = false) -> [Vec2] {
         let down = -up
+        /// Body-relative "forward" (to the stickman's right when upright).
+        let forward = Vec2(up.y, -up.x)
         let body = torso + up * Self.bodyLift
         let neck = body + up * Self.halfSpine
         let pelvis = body - up * Self.halfSpine
@@ -122,6 +160,23 @@ public struct Ragdoll: Sendable {
         set(.neck, neck)
         set(.pelvis, pelvis)
         set(.head, neck + up * Self.neckToHead)
+
+        if tucked {
+            // Tucked flip: knees pulled to the chest, hands grabbing the shins.
+            let thigh = (forward * 0.95 + up * 0.3).normalized
+            let shin = (down * 0.9 + forward * 0.2).normalized
+            for (knee, foot, spread) in [(Joint.leftKnee, Joint.leftFoot, -2.0), (.rightKnee, .rightFoot, 2.0)] {
+                let kneePoint = pelvis + thigh * 12 + up * spread
+                set(knee, kneePoint)
+                set(foot, kneePoint + shin * 12)
+            }
+            let arm = (forward * 0.8 + down * 0.6).normalized
+            set(.leftElbow, neck + arm * 10 + up * 2)
+            set(.leftHand, neck + arm * 20)
+            set(.rightElbow, neck + arm * 10 - up * 2)
+            set(.rightHand, neck + arm * 20)
+            return p
+        }
 
         let leftArm = down.rotated(by: -1.2)
         set(.leftElbow, neck + leftArm * 10)
