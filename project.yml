@@ -13,6 +13,8 @@ targets:
     sources: [App]
     dependencies:
       - package: GrappleCore
+    # Shared scheme so `xcodebuild -scheme GrappleGuy` works without opening Xcode first.
+    scheme: {}
     info:
       path: App/Info.plist
       properties:
