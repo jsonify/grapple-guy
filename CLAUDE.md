@@ -4,7 +4,7 @@ iOS stickman grappling side-scroller. Spec: `docs/plans/grapple-guy.md`. Work is
 
 ## Commands
 
-- Generate project: `xcodegen` (never hand-edit or commit `GrappleGuy.xcodeproj`; change `project.yml`)
+- Generate project: `./tools/setup.sh` (signing team setup + quits Xcode + `xcodegen` + package resolve + reopen). Never hand-edit or commit `GrappleGuy.xcodeproj`; change `project.yml`
 - Core tests: `cd Packages/GrappleCore && swift test`
 - App build: `xcodebuild -project GrappleGuy.xcodeproj -scheme GrappleGuy -destination 'generic/platform=iOS Simulator' build`
 
