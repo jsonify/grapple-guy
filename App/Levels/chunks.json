@@ -1,0 +1,74 @@
+[
+  {
+    "id": "start",
+    "width": 500,
+    "elements": [
+      {"type": "solid", "rect": [0, -40, 500, 40]},
+      {"type": "spawn", "at": [200, 40]}
+    ]
+  },
+  {
+    "id": "ceiling",
+    "width": 420,
+    "elements": [
+      {"type": "grapple", "rect": [130, 560, 160, 40]}
+    ]
+  },
+  {
+    "id": "ceiling-pillar",
+    "width": 420,
+    "elements": [
+      {"type": "grapple", "rect": [130, 560, 160, 40]},
+      {"type": "solid", "rect": [340, -600, 80, 820]}
+    ]
+  },
+  {
+    "id": "ceiling-overhang",
+    "width": 420,
+    "elements": [
+      {"type": "grapple", "rect": [130, 560, 160, 40]},
+      {"type": "solid", "rect": [80, 400, 260, 40]}
+    ]
+  },
+  {
+    "id": "ceiling-wall",
+    "width": 420,
+    "elements": [
+      {"type": "grapple", "rect": [130, 560, 160, 40]},
+      {"type": "solid", "rect": [340, 380, 60, 620]}
+    ]
+  },
+  {
+    "id": "ceiling-gem",
+    "width": 420,
+    "elements": [
+      {"type": "grapple", "rect": [130, 560, 160, 40]},
+      {"type": "gem", "at": [210, 260]}
+    ]
+  },
+  {
+    "id": "ceiling-gem-high",
+    "width": 420,
+    "elements": [
+      {"type": "grapple", "rect": [130, 560, 160, 40]},
+      {"type": "gem", "at": [360, 720]}
+    ]
+  },
+  {
+    "id": "checkpoint",
+    "width": 420,
+    "elements": [
+      {"type": "solid", "rect": [60, -40, 300, 40]},
+      {"type": "checkpoint", "at": [210, 40]},
+      {"type": "grapple", "rect": [130, 560, 160, 40]}
+    ]
+  },
+  {
+    "id": "finish",
+    "width": 600,
+    "elements": [
+      {"type": "solid", "rect": [0, -40, 600, 40]},
+      {"type": "finish", "x": 100}
+    ]
+  }
+]

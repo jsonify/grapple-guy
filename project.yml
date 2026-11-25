@@ -1,0 +1,37 @@
+name: GrappleGuy
+options:
+  deploymentTarget:
+    iOS: "17.0"
+packages:
+  GrappleCore:
+    path: Packages/GrappleCore
+targets:
+  GrappleGuy:
+    type: application
+    platform: iOS
+    sources: [App]
+    dependencies:
+      - package: GrappleCore
+    # Shared scheme so `xcodebuild -scheme GrappleGuy` works without opening Xcode first.
+    scheme: {}
+    info:
+      path: App/Info.plist
+      properties:
+        CFBundleDisplayName: Grapple Guy
+        UILaunchScreen: {}
+        UIRequiresFullScreen: true
+        UIStatusBarHidden: true
+        CADisableMinimumFrameDurationOnPhone: true
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+    configFiles:
+      Debug: Config/Signing.xcconfig
+      Release: Config/Signing.xcconfig
+    settings:
+      base:
+        TARGETED_DEVICE_FAMILY: "1"
+        SWIFT_VERSION: "5.0"
+        MARKETING_VERSION: "0.1"
+        CURRENT_PROJECT_VERSION: "1"
+        # Bundle ID and signing team: see Config/Signing.xcconfig (team goes in the git-ignored Config/Local.xcconfig)

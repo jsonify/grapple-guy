@@ -1,0 +1,27 @@
+{
+  "name": "Test Room",
+  "par": 12,
+  "killY": -500,
+  "chunks": [
+    {"id": "start"},
+    {"id": "ceiling"},
+    {"id": "ceiling-gem", "dy": 60},
+    {"id": "ceiling-pillar"},
+    {"id": "ceiling", "dy": 120},
+    {"id": "ceiling-gem-high", "dy": 40},
+    {"id": "ceiling-overhang"},
+    {"id": "ceiling", "dy": 90},
+    {"id": "checkpoint", "dy": 0},
+    {"id": "ceiling-pillar"},
+    {"id": "ceiling-gem", "dy": -20},
+    {"id": "ceiling", "dy": 70},
+    {"id": "ceiling-wall"},
+    {"id": "ceiling-gem-high", "dy": 110},
+    {"id": "ceiling", "dy": -40},
+    {"id": "ceiling-pillar"},
+    {"id": "ceiling-gem", "dy": 50},
+    {"id": "ceiling", "dy": 130},
+    {"id": "ceiling", "dy": 20},
+    {"id": "finish"}
+  ]
+}

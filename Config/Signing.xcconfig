@@ -1,0 +1,9 @@
+// Signing settings live here, not in project.yml, so `xcodegen` never wipes them.
+// Put your own team (and bundle ID, if different) in Config/Local.xcconfig, which git ignores:
+//
+//   DEVELOPMENT_TEAM = ABCDE12345
+//
+PRODUCT_BUNDLE_IDENTIFIER = com.grappleguy
+CODE_SIGN_STYLE = Automatic
+
+#include? "Local.xcconfig"
