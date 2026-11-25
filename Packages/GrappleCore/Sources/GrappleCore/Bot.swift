@@ -83,8 +83,6 @@ public final class Bot {
 
     /// Step used when simulating plans ahead: the game's own step, so predictions match what really happens.
     static let planningStep = 1.0 / 120.0
-    /// A shot must beat coasting (doing nothing) by at least this much to be worth a swing.
-    static let worthASwing = 150.0
 
     public init(level: Level, tuning: Tuning = .default, skill: BotSkill, seed: UInt64, wind: Double, ropeRange: Double) {
         self.skill = skill
@@ -176,14 +174,15 @@ public final class Bot {
                 phase = .flying(replanAt: clock + 0.25)
                 return
             }
-            let planned = makePlan()
+            // Only plan a shot when one is needed: standing still, or coasting would end badly.
+            // (Planning is the expensive part, so this also keeps bots cheap while they fly.)
             let standingStill = sim.isTouchingSurface && sim.velocity.length < 80
-            let mustAct = coast.score <= Self.unsafe || standingStill
-            if let candidate = planned, !mustAct, candidate.score < coast.score + Self.worthASwing {
-                note("coast is fine (\(Int(coast.score)) vs best shot \(Int(candidate.score)))")
-                phase = .flying(replanAt: clock + 0.2)
+            if !standingStill && coast.score > Self.unsafe {
+                note("coast is fine (\(Int(coast.score)))")
+                phase = .flying(replanAt: clock + 0.3)
                 return
             }
+            let planned = makePlan()
             guard let plan = planned?.plan else {
                 note("no plan from \(fmt(sim.position)) rope=\(sim.rope != nil) shot=\(sim.shot != nil) state=\(sim.state)")
                 // Nothing useful in reach: wait (or fall) and look again, with an occasional shot of faith.
