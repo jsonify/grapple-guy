@@ -179,18 +179,6 @@ final class GameScene: SKScene {
         }
     }
 
-    /// Sliding the holding finger along the rope reels it: toward the stickman shortens (issue #14).
-    override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
-        guard let touch = activeTouch, touches.contains(touch),
-              let anchor = simulation.rope?.anchor, let view else { return }
-        // Use view coordinates so camera motion doesn't count as finger motion.
-        let now = touch.location(in: view)
-        let before = touch.previousLocation(in: view)
-        let fingerDelta = Vec2(Double(now.x - before.x), Double(before.y - now.y)) * Double(cameraNode.xScale)
-        let towardStickman = (simulation.position - anchor).normalized
-        simulation.reel(by: -fingerDelta.dot(towardStickman) * tuning.reelRatio)
-    }
-
     override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
         endTouch(touches)
     }

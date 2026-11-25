@@ -12,6 +12,7 @@ final class SwingSimulationTests: XCTestCase {
         t.maxSpeed = 1e6
         t.swingGravityMultiplier = 1
         t.releaseLift = 0
+        t.retractSpeed = 0
         return t
     }
 
@@ -107,6 +108,55 @@ final class SwingSimulationTests: XCTestCase {
         sim.position = Vec2(0, 200)  // well inside rope length
         sim.reel(by: -50)
         XCTAssertEqual(sim.velocity, Vec2(600, 0))
+    }
+
+    func testPartialMomentumCarry() {
+        let sim = tautSwing(velocity: Vec2(600, 0))
+        sim.reel(by: -100, momentumCarry: 0.5)
+        XCTAssertEqual(sim.velocity.x, 600 * 1.125, accuracy: 1e-6)
+    }
+
+    // MARK: Hold to retract (#14)
+
+    private func heldRope(length: Double) -> SwingSimulation {
+        var tuning = noDrag()
+        tuning.retractSpeed = 700
+        tuning.retractDelay = 0.2
+        tuning.retractMinLength = 80
+        let sim = SwingSimulation(level: emptyLevel(), tuning: tuning)
+        sim.position = Vec2(0, 500 - length)
+        sim.attachRope(anchor: Vec2(0, 500), length: length)
+        return sim
+    }
+
+    func testQuickHoldDoesNotRetract() {
+        let sim = heldRope(length: 500)
+        for _ in 0..<12 { sim.step(sim.fixedTimeStep) }  // 0.1 s < delay
+        XCTAssertEqual(sim.rope?.length ?? 0, 500, accuracy: 1e-9)
+    }
+
+    func testSustainedHoldRetractsAtSpeed() {
+        let sim = heldRope(length: 500)
+        for _ in 0..<60 { sim.step(sim.fixedTimeStep) }  // 0.5 s: 0.3 s of retracting
+        XCTAssertEqual(sim.rope?.length ?? 0, 500 - 700 * 0.3, accuracy: 10)
+    }
+
+    func testRetractStopsAtFloor() {
+        let sim = heldRope(length: 500)
+        for _ in 0..<240 { sim.step(sim.fixedTimeStep) }
+        XCTAssertEqual(sim.rope?.length ?? 0, 80, accuracy: 1e-9)
+    }
+
+    func testRetractNeverLengthensShortRope() {
+        let sim = heldRope(length: 60)
+        for _ in 0..<120 { sim.step(sim.fixedTimeStep) }
+        XCTAssertEqual(sim.rope?.length ?? 0, 60, accuracy: 1e-9)
+    }
+
+    func testRetractPullsStickmanUp() {
+        let sim = heldRope(length: 500)
+        for _ in 0..<120 { sim.step(sim.fixedTimeStep) }
+        XCTAssertGreaterThan(sim.position.y, 200)
     }
 
     func testReelWithoutRopeDoesNothing() {

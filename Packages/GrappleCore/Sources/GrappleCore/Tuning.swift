@@ -21,8 +21,14 @@ public struct Tuning: Equatable, Codable, Sendable {
     public var limbStiffness: Double = 10
     /// Fraction of limb speed lost per second.
     public var limbDamping: Double = 1.5
-    /// Rope length change per point the holding finger slides along the rope (toward the stickman = shorter).
-    public var reelRatio: Double = 1.5
+    /// Holding the rope this long (seconds) starts retracting it, so quick taps still swing.
+    public var retractDelay: Double = 0.2
+    /// Rope length retracted per second while holding.
+    public var retractSpeed: Double = 700
+    /// Retracting stops at this rope length.
+    public var retractMinLength: Double = 80
+    /// 0…1: how much of the swing speed-up from shortening the rope is kept (1 = full angular momentum).
+    public var retractMomentumCarry: Double = 0.5
     /// Letting go of a taut rope while moving at least this fast, heading upward within the angle window, boosts.
     public var boostMinSpeed: Double = 500
     public var boostImpulse: Double = 350

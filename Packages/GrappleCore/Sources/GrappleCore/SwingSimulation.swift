@@ -34,6 +34,8 @@ public final class SwingSimulation {
     public private(set) var ragdoll: Ragdoll
     public private(set) var elapsed: Double = 0
     private var accumulator: Double = 0
+    /// How long the current rope has been held.
+    private var ropeHoldTime: Double = 0
 
     public init(level: Level, tuning: Tuning = .default, fixedTimeStep: Double = 1.0 / 120.0) {
         self.level = level
@@ -93,9 +95,10 @@ public final class SwingSimulation {
         return boosted
     }
 
-    /// Changes rope length by `delta` (negative reels in), clamped to [minRopeLength, ropeRange] (issue #14).
-    /// On a taut rope, angular momentum is conserved: reeling in speeds the swing up, reeling out slows it.
-    public func reel(by delta: Double) {
+    /// Changes rope length by `delta` (negative reels in), clamped to [minRopeLength, ropeRange].
+    /// On a taut rope, `momentumCarry` of the angular-momentum change applies: at 1, reeling in speeds the
+    /// swing up by oldLength/newLength; at 0, tangential speed is unchanged.
+    public func reel(by delta: Double, momentumCarry: Double = 1) {
         guard state == .playing, var current = rope else { return }
         let oldLength = current.length
         let newLength = min(max(oldLength + delta, tuning.minRopeLength), tuning.ropeRange)
@@ -106,8 +109,19 @@ public final class SwingSimulation {
         guard wasTaut else { return }
         let n = (position - current.anchor).normalized
         let t = n.perpendicular
-        velocity = n * velocity.dot(n) + t * (velocity.dot(t) * oldLength / newLength)
+        let speedFactor = 1 + momentumCarry * (oldLength / newLength - 1)
+        velocity = n * velocity.dot(n) + t * (velocity.dot(t) * speedFactor)
         clampSpeed()
+    }
+
+    /// Holding the rope past `retractDelay` reels it in at `retractSpeed`, down to `retractMinLength` (issue #14).
+    private func retractIfHeld(_ dt: Double) {
+        guard let current = rope else { return }
+        ropeHoldTime += dt
+        guard ropeHoldTime > tuning.retractDelay else { return }
+        let floor = max(tuning.retractMinLength, tuning.minRopeLength)
+        guard current.length > floor else { return }
+        reel(by: -min(tuning.retractSpeed * dt, current.length - floor), momentumCarry: tuning.retractMomentumCarry)
     }
 
     /// Without this, a rope fired while standing (or moving slowly) is slack and nothing happens.
@@ -121,6 +135,7 @@ public final class SwingSimulation {
 
     func attachRope(anchor: Vec2, length: Double) {
         rope = Rope(anchor: anchor, length: max(length, tuning.minRopeLength))
+        ropeHoldTime = 0
     }
 
     /// Advances by real frame time using fixed substeps.
@@ -146,6 +161,7 @@ public final class SwingSimulation {
     private func stepTorso(_ dt: Double) -> SimEvent? {
         guard state == .playing else { return nil }
         elapsed += dt
+        retractIfHeld(dt)
 
         let gravityScale = isRopeTaut ? tuning.swingGravityMultiplier : 1
         velocity.y -= tuning.gravity * gravityScale * dt
