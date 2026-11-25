@@ -34,6 +34,10 @@ struct TuningPanel: View {
                 slider("Gem pickup radius", $tuning.gemPickupRadius, 10...120)
                 slider("Limb stiffness", $tuning.limbStiffness, 0...40)
                 slider("Limb damping", $tuning.limbDamping, 0...10)
+                slider("Hit-stop (s)", $tuning.hitStopSeconds, 0...0.4)
+                slider("Speed zoom", $tuning.speedZoom, 0...1)
+                slider("Speed for full zoom", $tuning.speedZoomFullSpeed, 500...5000)
+                slider("Screen shake", $tuning.screenShake, 0...50)
                 slider("Crash impact speed", $tuning.crashImpactSpeed, 200...4000)
                 slider("Surface friction", $tuning.surfaceFriction, 0...20)
 

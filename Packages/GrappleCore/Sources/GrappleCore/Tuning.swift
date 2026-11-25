@@ -50,6 +50,17 @@ public struct Tuning: Equatable, Codable, Sendable {
     /// Fraction of sliding speed lost per second while touching a surface.
     public var surfaceFriction: Double = 6
 
+    // MARK: Game feel (presentation only; issue #20)
+
+    /// Freeze-frame length on a crash, in seconds (half of it on finishing).
+    public var hitStopSeconds: Double = 0.1
+    /// Extra view (as a fraction) the camera zooms out at high speed.
+    public var speedZoom: Double = 0.35
+    /// Speed at which the zoom-out is full.
+    public var speedZoomFullSpeed: Double = 2500
+    /// Screen-shake strength on a crash, in points.
+    public var screenShake: Double = 16
+
     public init() {}
 
     public static let `default` = Tuning()

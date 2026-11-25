@@ -25,6 +25,13 @@ final class GameScene: SKScene {
     private var checkpointNodes: [SKShapeNode] = []
     /// 0…1 screen-shake strength, decays every frame.
     private var shake: Double = 0
+    /// Remaining freeze-frame time; the simulation pauses while it's positive.
+    private var hitStop: Double = 0
+    /// Camera scale before speed zoom, and the smoothed zoom factor.
+    private var baseCameraScale: CGFloat = 1
+    private var zoom: Double = 1
+    private let feedback = Feedback()
+    private var background: ParallaxBackground?
 
     private var lastUpdate: TimeInterval?
     private var activeTouch: UITouch?
@@ -59,6 +66,8 @@ final class GameScene: SKScene {
         addChild(world)
         addChild(cameraNode)
         camera = cameraNode
+        cameraNode.zPosition = 100  // HUD above the course
+        background = ParallaxBackground(scene: self, level: simulation.level)
 
         buildLevel()
 
@@ -119,7 +128,8 @@ final class GameScene: SKScene {
 
     private func layoutForSize() {
         guard size.height > 0 else { return }
-        cameraNode.setScale(visibleHeight / size.height)
+        baseCameraScale = visibleHeight / size.height
+        cameraNode.setScale(baseCameraScale * CGFloat(zoom))
         // HUD children of the camera use screen points.
         timerLabel.position = CGPoint(x: -size.width / 2 + 24, y: size.height / 2 - 16)
         statusLabel.position = CGPoint(x: 0, y: size.height * 0.12)
@@ -221,31 +231,52 @@ final class GameScene: SKScene {
         let dt = lastUpdate.map { min(currentTime - $0, 1.0 / 20.0) } ?? 0
         lastUpdate = currentTime
 
-        for event in simulation.update(deltaTime: dt) {
+        // Hit-stop: freeze the simulation briefly; rendering (shake, camera) keeps going.
+        var simDt = dt
+        if hitStop > 0 {
+            hitStop -= dt
+            simDt = 0
+        }
+
+        for event in simulation.update(deltaTime: simDt) {
             switch event {
             case .ropeAttached:
+                feedback.play(.attach, on: self)
+                feedback.haptic(.medium)
                 if !hasAttachedOnce {
                     hasAttachedOnce = true
                     hintLabel.removeAllActions()
                     hintLabel.run(.fadeOut(withDuration: 0.3))
                 }
             case .ropeBlocked(let wallPoint):
+                feedback.play(.clank, on: self)
+                feedback.haptic(.rigid)
                 showFailedShot(to: wallPoint, blocked: true)
             case .ropeMissed(let end):
                 showFailedShot(to: end, blocked: false)
             case .gemCollected(let index):
+                feedback.play(.gem, on: self)
+                feedback.haptic(.light)
                 gemNodes[index].run(.group([.scale(to: 2.2, duration: 0.25), .fadeOut(withDuration: 0.25)]))
             case .checkpointReached(let index):
+                feedback.play(.checkpoint, on: self)
+                feedback.haptic(.success)
                 checkpointNodes[index].strokeColor = Palette.finish
             case .crashed:
                 activeTouch = nil
                 shake = 1
+                hitStop = tuning.hitStopSeconds
+                feedback.play(.crash, on: self)
+                feedback.haptic(.heavy)
                 stickman.setCrashed(true)
                 statusLabel.text = simulation.activeCheckpoint == nil
                     ? "CRASHED!\nTap to try again from the start (your swings still count)"
                     : "CRASHED!\nTap to try again from the checkpoint flag (your swings still count)"
             case .finished:
                 activeTouch = nil
+                hitStop = tuning.hitStopSeconds / 2
+                feedback.play(.finish, on: self)
+                feedback.haptic(.success)
                 showFinish()
             }
         }
@@ -293,7 +324,7 @@ final class GameScene: SKScene {
 
         // Shake the world, not the camera, so the HUD stays still.
         if shake > 0.01 {
-            let amount = 16 * shake
+            let amount = tuning.screenShake * shake
             world.position = CGPoint(x: Double.random(in: -amount...amount), y: Double.random(in: -amount...amount))
             shake *= exp(-7 * dt)
         } else if world.position != .zero {
@@ -310,6 +341,14 @@ final class GameScene: SKScene {
         let follow = CGFloat(dt > 0 ? 1 - exp(-5 * dt) : 1)
         cameraNode.position.x += (target.x - cameraNode.position.x) * follow
         cameraNode.position.y += (target.y - cameraNode.position.y) * follow
+
+        // Zoom out with speed so fast swings feel fast and show more of what's ahead.
+        let speedFraction = crashed ? 0 : min(1, simulation.velocity.length / max(1, tuning.speedZoomFullSpeed))
+        let targetZoom = 1 + tuning.speedZoom * speedFraction
+        zoom += (targetZoom - zoom) * (dt > 0 ? 1 - exp(-2.5 * dt) : 1)
+        cameraNode.setScale(baseCameraScale * CGFloat(zoom))
+
+        background?.update(cameraPosition: cameraNode.position)
     }
 
     // MARK: - Input
@@ -333,7 +372,10 @@ final class GameScene: SKScene {
         let target = Vec2(point)
         let direction = (target - simulation.position).normalized
         let range = screenEdgeDistance(from: simulation.position, along: direction).map { $0 * tuning.ropeRangeScreenFactor }
-        simulation.fireGrapple(toward: target, range: range)
+        if simulation.fireGrapple(toward: target, range: range) {
+            feedback.play(.shoot, on: self)
+            feedback.haptic(.light)
+        }
     }
 
     override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
@@ -348,6 +390,8 @@ final class GameScene: SKScene {
         guard let active = activeTouch, touches.contains(active) else { return }
         activeTouch = nil
         if simulation.release() {
+            feedback.play(.boost, on: self)
+            feedback.haptic(.medium)
             showBoostEffect()
         }
     }
