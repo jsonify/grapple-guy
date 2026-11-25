@@ -6,20 +6,22 @@ final class StickmanNode: SKNode {
     private let outline = SKShapeNode()
     private let limbs = SKShapeNode()
     private let head = SKShapeNode(circleOfRadius: 11)
+    private let color: SKColor
 
-    override init() {
+    init(color: SKColor = Palette.stickman) {
+        self.color = color
         super.init()
         outline.strokeColor = Palette.outline
         outline.lineWidth = 11
         outline.lineCap = .round
         outline.lineJoin = .round
         addChild(outline)
-        limbs.strokeColor = Palette.stickman
+        limbs.strokeColor = color
         limbs.lineWidth = 5
         limbs.lineCap = .round
         limbs.lineJoin = .round
         addChild(limbs)
-        head.fillColor = Palette.stickman
+        head.fillColor = color
         head.strokeColor = Palette.outline
         head.lineWidth = 4
         addChild(head)
@@ -28,9 +30,9 @@ final class StickmanNode: SKNode {
     required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
 
     func setCrashed(_ crashed: Bool) {
-        let color = crashed ? Palette.crashed : Palette.stickman
-        limbs.strokeColor = color
-        head.fillColor = color
+        let tint = crashed ? Palette.crashed : color
+        limbs.strokeColor = tint
+        head.fillColor = tint
     }
 
     func update(ragdoll r: Ragdoll) {

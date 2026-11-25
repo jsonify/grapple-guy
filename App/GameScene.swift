@@ -29,6 +29,21 @@ final class GameScene: SKScene {
     private let windCard = Card(padding: CGSize(width: 14, height: 6), cornerRadius: 14)
     /// Short "SPLASH! +1" style banners.
     private let penaltyCard = Card(fill: Palette.overPar, stroke: Palette.outline, padding: CGSize(width: 20, height: 8))
+    /// Live standings, under the gems/time card.
+    private let standingsCard = Card(padding: CGSize(width: 14, height: 6), cornerRadius: 14)
+
+    /// Computer opponents racing the same hole (#32), each with its own stickman and rope.
+    private struct BotView {
+        let bot: Bot
+        let color: SKColor
+        let stickman: StickmanNode
+        let ropeOutline: SKShapeNode
+        let rope: SKShapeNode
+        let nameTag: SKLabelNode
+    }
+    private var bots: [BotView] = []
+    private static let botRoster: [(BotSkill, SKColor)] = [(.rookie, Palette.botRita), (.steady, Palette.botSam), (.pro, Palette.botPip)]
+
     private var shownSwings = 0
     private var hasAttachedOnce = false
     private var gemNodes: [SKNode] = []
@@ -94,7 +109,7 @@ final class GameScene: SKScene {
         world.addChild(ropeNode)
         world.addChild(stickman)
 
-        for card in [infoCard, goalCard, swingsCard, windCard, hintCard, introCard, statusCard, penaltyCard] {
+        for card in [infoCard, standingsCard, goalCard, swingsCard, windCard, hintCard, introCard, statusCard, penaltyCard] {
             cameraNode.addChild(card)
         }
         statusCard.set(nil, maxWidth: 0)
@@ -104,6 +119,7 @@ final class GameScene: SKScene {
         showIntro()
 
         layoutForSize()
+        makeBots()
         cameraNode.position = CGPoint(simulation.position + Vec2(0, cameraLift))
         render(dt: 0)
     }
@@ -192,6 +208,15 @@ final class GameScene: SKScene {
             simDt = 0
         }
 
+        // Bots race live while you play (and while you're respawning); once you finish they're fast-forwarded.
+        if simulation.runResult == nil {
+            let reach = playerRopeReach()
+            for view in bots {
+                view.bot.ropeRange = reach
+                view.bot.update(deltaTime: simDt)
+            }
+        }
+
         for event in simulation.update(deltaTime: simDt) {
             switch event {
             case .ropeAttached:
@@ -277,6 +302,7 @@ final class GameScene: SKScene {
                                        simulation.level.gems.count, simulation.elapsed), size: 18),
                      maxWidth: size.width * 0.3)
         infoCard.position = CGPoint(x: -size.width / 2 + 24 + infoCard.size.width / 2, y: size.height / 2 - 36)
+        renderBots()
 
         // Arrow toward the goal while it's off screen to the right.
         let visibleRight = Double(cameraNode.position.x) + Double(size.width * cameraNode.xScale) / 2
@@ -385,6 +411,7 @@ final class GameScene: SKScene {
     func restartLevel() {
         activeTouch = nil
         simulation.reset()
+        for view in bots { view.bot.reset() }
         resetLevelDecorations()
         afterRespawn()
     }
@@ -469,6 +496,100 @@ final class GameScene: SKScene {
         }
     }
 
+    // MARK: - Bots
+
+    private func makeBots() {
+        let reach = playerRopeReach()
+        for (index, entry) in Self.botRoster.enumerated() {
+            let (skill, color) = entry
+            let bot = Bot(level: simulation.level, tuning: tuning, skill: skill,
+                          seed: UInt64(index + 1) &* 7919, wind: simulation.wind, ropeRange: reach)
+            let stickman = StickmanNode(color: color)
+            stickman.alpha = 0.9
+            stickman.zPosition = -1
+            world.addChild(stickman)
+            let outline = SKShapeNode()
+            outline.strokeColor = Palette.outline
+            outline.lineWidth = 6
+            outline.lineCap = .round
+            outline.zPosition = -1.1
+            world.addChild(outline)
+            let rope = SKShapeNode()
+            rope.strokeColor = color
+            rope.lineWidth = 2.5
+            rope.lineCap = .round
+            rope.zPosition = -1.05
+            world.addChild(rope)
+            let tag = SKLabelNode()
+            tag.attributedText = Theme.text(skill.name.components(separatedBy: " ").last ?? skill.name,
+                                            size: 22, color: color, outline: Palette.outline)
+            tag.zPosition = -0.9
+            world.addChild(tag)
+            bots.append(BotView(bot: bot, color: color, stickman: stickman, ropeOutline: outline, rope: rope, nameTag: tag))
+        }
+    }
+
+    private func renderBots() {
+        for view in bots {
+            let sim = view.bot.sim
+            view.stickman.update(ragdoll: sim.ragdoll)
+            view.stickman.setCrashed(sim.state == .crashed)
+            view.nameTag.position = CGPoint(sim.ragdoll[.head] + Vec2(0, 26))
+            if let anchor = sim.rope?.anchor ?? sim.shot?.tip {
+                let path = CGMutablePath()
+                path.move(to: CGPoint(sim.ragdoll.ropeHand))
+                path.addLine(to: CGPoint(anchor))
+                view.ropeOutline.path = path
+                view.rope.path = path
+            } else {
+                view.ropeOutline.path = nil
+                view.rope.path = nil
+            }
+        }
+        // Live standings: everyone's swings so far, in race order.
+        let lines = currentStandings().map { entry -> NSAttributedString in
+            let name = entry.isPlayer ? "You" : (entry.name.components(separatedBy: " ").last ?? entry.name)
+            let flag = entry.time == nil ? "" : " ⚑"
+            return Theme.text("\(name) \(entry.strokes)\(flag)   ", size: 15,
+                              color: entry.isPlayer ? Palette.gold : nameColor(entry.name))
+        }
+        standingsCard.set(Theme.join(lines), maxWidth: size.width * 0.34)
+        standingsCard.position = CGPoint(x: -size.width / 2 + 24 + standingsCard.size.width / 2,
+                                         y: size.height / 2 - 36 - infoCard.size.height / 2 - 8 - standingsCard.size.height / 2)
+    }
+
+    /// Everyone on the hole, ranked: finishers first, then fewest swings, then time.
+    private func currentStandings() -> [RaceEntry] {
+        var entries = bots.map { view -> RaceEntry in
+            var time: Double?
+            if case .finished(let t) = view.bot.sim.state { time = t }
+            return RaceEntry(name: view.bot.skill.name, strokes: view.bot.sim.strokes, time: time)
+        }
+        var playerTime: Double?
+        if case .finished(let t) = simulation.state { playerTime = t }
+        entries.append(RaceEntry(name: "You", strokes: simulation.strokes, time: playerTime, isPlayer: true))
+        return RaceStandings.rank(entries)
+    }
+
+    private func nameColor(_ name: String) -> SKColor {
+        bots.first { $0.bot.skill.name == name }?.color ?? Palette.hudText
+    }
+
+    private func ordinal(_ n: Int) -> String {
+        switch n {
+        case 1: return "1st"
+        case 2: return "2nd"
+        case 3: return "3rd"
+        default: return "\(n)th"
+        }
+    }
+
+    /// The player's rope reach at normal zoom (screen edge × factor), so bots get the same range.
+    private func playerRopeReach() -> Double {
+        let halfWidth = Double(size.width * baseCameraScale) / 2
+        return max(tuning.ropeRange, halfWidth * tuning.ropeRangeScreenFactor)
+    }
+
     private func updateWindCard() {
         let wind = simulation.wind * tuning.windStrength
         guard abs(wind) >= 1 else {
@@ -486,6 +607,8 @@ final class GameScene: SKScene {
     private func showFinish() {
         guard let result = simulation.runResult else { return }
         let record = ProgressStore.save(result, for: simulation.level.name)
+        // Bots still on the course play on instantly so the hole can be scored now.
+        for view in bots where !view.bot.isFinished { view.bot.finishInstantly() }
         let faded = Palette.hudText.withAlphaComponent(0.6)
         func starLine(_ star: Star, _ label: String) -> [NSAttributedString] {
             let earned = result.stars.contains(star)
@@ -494,10 +617,18 @@ final class GameScene: SKScene {
                 Theme.text(label + "\n", size: 18, color: earned ? Palette.hudText : faded),
             ]
         }
+        let standings = currentStandings()
+        let place = (standings.firstIndex { $0.isPlayer } ?? 0) + 1
+        let placeTitle = place == 1 ? "YOU WIN THE HOLE!" : "\(ordinal(place)) PLACE"
         var parts: [NSAttributedString] = [
-            Theme.text("\(result.golfTerm)\n", size: 42, color: Palette.gold, outline: Palette.outline),
-            Theme.text("\(result.strokes) swings  ·  par \(result.par)\n", size: 20),
+            Theme.text("\(placeTitle)\n", size: 40, color: place == 1 ? Palette.gold : .white, outline: Palette.outline),
+            Theme.text("\(result.golfTerm) · \(result.strokes) swings · par \(result.par)\n", size: 20),
         ]
+        for (i, entry) in standings.enumerated() {
+            let time = entry.time.map { String(format: "%.1fs", $0) } ?? "DNF"
+            let line = "\(ordinal(i + 1))  \(entry.isPlayer ? "You" : entry.name)   \(entry.strokes) swings · \(time)\n"
+            parts.append(Theme.text(line, size: 16, color: entry.isPlayer ? Palette.gold : nameColor(entry.name)))
+        }
         parts += starLine(.finished, "Reached the goal")
         parts += starLine(.par, "\(result.par) swings or fewer")
         parts += starLine(.allGems, "All gems (\(result.gemsCollected)/\(result.gemsTotal))")

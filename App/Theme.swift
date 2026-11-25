@@ -41,6 +41,11 @@ enum Palette {
     static let boost = SKColor(red: 0.42, green: 0.86, blue: 1.00, alpha: 1)
     static let miss = SKColor(red: 1.00, green: 0.42, blue: 0.36, alpha: 1)
 
+    // Bots (#32)
+    static let botRita = SKColor(red: 1.00, green: 0.50, blue: 0.75, alpha: 1)
+    static let botSam = SKColor(red: 0.45, green: 0.88, blue: 0.48, alpha: 1)
+    static let botPip = SKColor(red: 0.40, green: 0.82, blue: 1.00, alpha: 1)
+
     // HUD
     static let hudPanel = SKColor(red: 0.12, green: 0.09, blue: 0.20, alpha: 0.82)
     static let hudBorder = SKColor(white: 1, alpha: 0.9)

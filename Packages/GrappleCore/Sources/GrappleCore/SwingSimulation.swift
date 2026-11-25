@@ -101,8 +101,12 @@ public final class SwingSimulation {
                          gemsTotal: level.gems.count, par: level.par)
     }
 
+    /// When false, the ragdoll isn't stepped (bots' planning copies skip it for speed).
+    public var simulatesRagdoll = true
+
+    /// `wind` overrides the randomly picked wind, so every player on a hole shares the same wind.
     public init(level: Level, tuning: Tuning = .default, fixedTimeStep: Double = 1.0 / 120.0,
-                seed: UInt64 = UInt64.random(in: 0...UInt64.max)) {
+                seed: UInt64 = UInt64.random(in: 0...UInt64.max), wind: Double? = nil) {
         random = SeededRandom(seed: seed)
         safeSpot = level.spawn
         self.level = level
@@ -111,9 +115,36 @@ public final class SwingSimulation {
         position = level.spawn
         velocity = .zero
         ragdoll = Ragdoll(torso: level.spawn)
-        if level.windRange > 0 {
-            wind = Double.random(in: -level.windRange...level.windRange, using: &random)
+        if let wind {
+            self.wind = wind
+        } else if level.windRange > 0 {
+            self.wind = Double.random(in: -level.windRange...level.windRange, using: &random)
         }
+    }
+
+    /// An independent copy of the current state, for looking ahead (bot planning).
+    public func copy() -> SwingSimulation {
+        let c = SwingSimulation(level: level, tuning: tuning, fixedTimeStep: fixedTimeStep, seed: 0, wind: wind)
+        c.simulatesRagdoll = simulatesRagdoll
+        c.position = position
+        c.velocity = velocity
+        c.rope = rope
+        c.shot = shot
+        c.state = state
+        c.ragdoll = ragdoll
+        c.elapsed = elapsed
+        c.accumulator = accumulator
+        c.isTouchingSurface = isTouchingSurface
+        c.isInSand = isInSand
+        c.shotFromSand = shotFromSand
+        c.safeSpot = safeSpot
+        c.penalties = penalties
+        c.random = random
+        c.ropeHoldTime = ropeHoldTime
+        c.strokes = strokes
+        c.collectedGems = collectedGems
+        c.activeCheckpoint = activeCheckpoint
+        return c
     }
 
     public var isRopeTaut: Bool {
@@ -298,8 +329,10 @@ public final class SwingSimulation {
     @discardableResult
     public func step(_ dt: Double) -> SimEvent? {
         let event = stepTorso(dt)
-        ragdoll.step(dt: dt, torso: position, velocity: velocity, ropeAnchor: rope?.anchor, level: level, tuning: tuning,
-                     spinRate: updateSpin())
+        if simulatesRagdoll {
+            ragdoll.step(dt: dt, torso: position, velocity: velocity, ropeAnchor: rope?.anchor, level: level, tuning: tuning,
+                         spinRate: updateSpin())
+        }
         return event
     }
 
