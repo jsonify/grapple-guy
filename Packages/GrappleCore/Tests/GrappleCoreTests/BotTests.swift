@@ -101,6 +101,19 @@ final class BotTests: XCTestCase {
         }
     }
 
+    /// Prints bot decisions for the failing scenarios so CI logs show why (no assertions).
+    func testDiagnosticDecisionLogs() {
+        var padTop = course()
+        padTop.spawn = Vec2(380, 620)
+        for (name, level, skill) in [("PADTOP", padTop, BotSkill.steady), ("COURSE", course(), BotSkill.pro)] {
+            let bot = Bot(level: level, skill: skill, seed: name == "PADTOP" ? 5 : 1, wind: 0, ropeRange: 1300)
+            bot.recordsDecisions = true
+            bot.finishInstantly(maxSeconds: 90)
+            for line in bot.decisionLog.prefix(160) { print("DIAG \(name) \(line)") }
+            print("DIAG \(name) END pos=\(bot.sim.position) swings=\(bot.sim.strokes) finished=\(bot.isFinished)")
+        }
+    }
+
     func testStandingsRankFinishersBySwingsThenTime() {
         let ranked = RaceStandings.rank([
             RaceEntry(name: "slow", strokes: 3, time: 20),

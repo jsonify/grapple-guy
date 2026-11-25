@@ -70,6 +70,13 @@ public final class Bot {
     /// Like golf's pick-up rule: a bot stops after this many swings and takes a DNF.
     public var swingLimit: Int
     public private(set) var gaveUp = false
+    /// When true, records each decision in `decisionLog` (for tests and debugging).
+    public var recordsDecisions = false
+    public private(set) var decisionLog: [String] = []
+
+    private func note(_ line: @autoclosure () -> String) {
+        if recordsDecisions { decisionLog.append(String(format: "t=%.2f ", clock) + line()) }
+    }
     private var random: SeededRandom
     private let seed: UInt64
     private let wind: Double
@@ -161,6 +168,7 @@ public final class Bot {
         case .thinking(let until):
             guard clock >= until else { return }
             guard let plan = makePlan() else {
+                note("no plan from \(fmt(sim.position)) rope=\(sim.rope != nil) shot=\(sim.shot != nil) state=\(sim.state)")
                 // Nothing useful in reach: wait (or fall) and look again, with an occasional shot of faith.
                 if clock - lastFaithShot > 2 && sim.fireGrapple(toward: sim.position + Vec2(700, 650), range: ropeRange) {
                     lastFaithShot = clock
@@ -172,9 +180,11 @@ public final class Bot {
                 return
             }
             if sim.fireGrapple(toward: plan.target, range: ropeRange) {
+                note("fire at \(fmt(plan.target)) hold \(plan.hold) from \(fmt(sim.position)) swings=\(sim.strokes)")
                 swingsWithoutProgress += 1
                 phase = .firing(plan)
             } else {
+                note("fire FAILED from \(fmt(sim.position)) rope=\(sim.rope != nil)")
                 phase = .thinking(until: clock + 0.2)
             }
         case .firing(let plan):
@@ -220,6 +230,7 @@ public final class Bot {
                 // Aim at the pad's middle: the rope hits whichever face is visible (top or bottom).
                 let plan = Plan(target: pad.center, hold: hold)
                 let score = evaluate(plan, pad: pad)
+                note("  option pad \(fmt(pad.center)) hold \(hold) -> \(Int(score)) [\(lastEvaluation)]")
                 if score > Self.hopeless { scored.append((plan, score)) }
             }
         }
@@ -239,12 +250,21 @@ public final class Bot {
     }
 
     /// Simulates a plan ahead (fire → hold → let go → fly) and scores where it ends up.
+    /// Why the last evaluated plan scored as it did (for the decision log).
+    private var lastEvaluation = ""
+
+    private func fmt(_ v: Vec2) -> String { "(\(Int(v.x)),\(Int(v.y)))" }
+
     private func evaluate(_ plan: Plan, pad: AABB) -> Double {
+        lastEvaluation = ""
         let lookahead = sim.copy()
         lookahead.simulatesRagdoll = false
         let startPenalties = lookahead.penalties
         let dt = Self.planningStep
-        guard lookahead.fireGrapple(toward: plan.target, range: ropeRange) else { return -.infinity }
+        guard lookahead.fireGrapple(toward: plan.target, range: ropeRange) else {
+            lastEvaluation = "could not fire"
+            return -.infinity
+        }
 
         // Wait for the rope to attach (or fail).
         var t = 0.0
@@ -253,9 +273,15 @@ public final class Bot {
             t += dt
         }
         // Must catch the intended pad, and not one right underneath (that just wastes a swing).
-        guard let anchor = lookahead.rope?.anchor else { return -1e6 }
+        guard let anchor = lookahead.rope?.anchor else {
+            lastEvaluation = "no attach (shot \(lookahead.shot == nil ? "ended" : "still flying"))"
+            return -1e6
+        }
         let padZone = AABB(x: pad.lower.x - 2, y: pad.lower.y - 2, width: pad.width + 4, height: pad.height + 4)
-        guard padZone.contains(anchor), anchor.distance(to: sim.position) > 120 else { return -1e6 }
+        guard padZone.contains(anchor), anchor.distance(to: sim.position) > 120 else {
+            lastEvaluation = "caught wrong spot \(fmt(anchor))"
+            return -1e6
+        }
 
         t = 0
         while t < plan.hold && lookahead.state == .playing && lookahead.penalties == startPenalties {
@@ -278,7 +304,11 @@ public final class Bot {
             }
         }
         let final = Self.score(lookahead, startPenalties: startPenalties)
-        if final <= Self.unsafe, let lastGrabbable { return lastGrabbable }
+        lastEvaluation = "end \(fmt(lookahead.position)) state=\(lookahead.state) pen=\(lookahead.penalties - startPenalties)"
+        if final <= Self.unsafe, let lastGrabbable {
+            lastEvaluation += " (grab fallback)"
+            return lastGrabbable
+        }
         return final
     }
 

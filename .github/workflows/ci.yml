@@ -52,6 +52,8 @@ jobs:
         run: |
           echo "===== CORE TESTS: ${{ steps.tests.outcome }} ====="
           grep -E "error:|Executed [0-9]+ tests" core-tests.log | tail -40 || true
+          echo "===== BOT DIAGNOSTICS ====="
+          grep "DIAG" core-tests.log | head -260 || true
           echo "===== APP BUILD: ${{ steps.build.outcome }} ====="
           grep -E "error:|BUILD (SUCCEEDED|FAILED)" app-build.log | sort -u | head -60 || true
           if [[ "${{ steps.tests.outcome }}" != "success" || "${{ steps.build.outcome }}" != "success" ]]; then exit 1; fi
