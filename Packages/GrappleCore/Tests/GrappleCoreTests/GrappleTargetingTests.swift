@@ -65,6 +65,34 @@ final class GrappleTargetingTests: XCTestCase {
         XCTAssertNil(anchor(aimAt: Vec2(100, 400), [grappleable(300, 600, 40, 40)], tuning: tuning))
     }
 
+    // MARK: Blocked shots (readable feedback + wider assist)
+
+    private func shot(aimAt target: Vec2, _ surfaces: [Surface]) -> GrappleShot {
+        GrappleTargeting.aim(from: .zero, at: target, in: level(surfaces), tuning: .default)
+    }
+
+    func testBlockedShotReportsWhereItHitTheWall() {
+        XCTAssertEqual(shot(aimAt: Vec2(0, 100), [solid(-1000, 200, 2000, 50)]), .blocked(at: Vec2(0, 200)))
+    }
+
+    func testMissReportsWhereTheRopeRanOut() {
+        XCTAssertEqual(shot(aimAt: Vec2(0, 100), []), .missed(end: Vec2(0, Tuning.default.ropeRange)))
+    }
+
+    /// A block ~25–31° off the aim is outside the normal 18° fan, but reachable past the narrow wall.
+    private let offAxisBlock = Surface(bounds: AABB(x: 220, y: 430, width: 40, height: 40), isGrappleable: true)
+
+    func testBlockedShotWidensAssistToReachableBlock() {
+        let wall = solid(-20, 150, 40, 50)
+        let result = shot(aimAt: Vec2(0, 100), [wall, offAxisBlock])
+        guard case .attached(let anchor) = result else { return XCTFail("expected attach, got \(result)") }
+        XCTAssertLessThan(offAxisBlock.bounds.closestPoint(to: anchor).distance(to: anchor), 1)
+    }
+
+    func testOpenSkyKeepsNarrowAssist() {
+        guard case .missed = shot(aimAt: Vec2(0, 100), [offAxisBlock]) else { return XCTFail("assist should stay at 18° without a wall") }
+    }
+
     func testTestRoomIsSwingableFromSpawn() {
         let room = Level.testRoom
         let first = GrappleTargeting.findAnchor(from: room.spawn, aimAt: room.spawn + Vec2(300, 500), in: room, tuning: .default)

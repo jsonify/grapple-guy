@@ -16,6 +16,8 @@ public struct Tuning: Equatable, Codable, Sendable {
     public var aimAssistRadius: Double = 280
     /// If the direct shot misses, rays are tried up to this many degrees either side of the aim.
     public var aimAssistAngleDegrees: Double = 18
+    /// When the direct shot hits a wall, the fan widens to this many degrees.
+    public var aimAssistBlockedAngleDegrees: Double = 35
     public var torsoRadius: Double = 16
     /// How strongly arms and legs are pulled back toward their rest pose while alive (per second).
     public var limbStiffness: Double = 10

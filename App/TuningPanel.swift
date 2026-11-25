@@ -19,6 +19,7 @@ struct TuningPanel: View {
                 slider("Attach tug speed", $tuning.attachTugSpeed, 0...2000)
                 slider("Assist radius", $tuning.aimAssistRadius, 0...400)
                 slider("Assist angle (°)", $tuning.aimAssistAngleDegrees, 0...45)
+                slider("Assist angle when blocked (°)", $tuning.aimAssistBlockedAngleDegrees, 0...90)
                 slider("Retract delay (s)", $tuning.retractDelay, 0...1)
                 slider("Retract speed", $tuning.retractSpeed, 0...2000)
                 slider("Retract min length", $tuning.retractMinLength, 45...400)

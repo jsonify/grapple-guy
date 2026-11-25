@@ -251,8 +251,7 @@ final class SwingSimulationTests: XCTestCase {
     func testFireGrappleAttachesAtDistance() {
         let ceiling = Surface(bounds: AABB(x: -500, y: 500, width: 1000, height: 50), isGrappleable: true)
         let sim = SwingSimulation(level: emptyLevel(surfaces: [ceiling]))
-        let anchor = sim.fireGrapple(toward: Vec2(0, 1000))
-        XCTAssertEqual(anchor, Vec2(0, 500))
+        XCTAssertEqual(sim.fireGrapple(toward: Vec2(0, 1000)), .attached(anchor: Vec2(0, 500)))
         XCTAssertEqual(sim.rope?.length ?? 0, 500, accuracy: 1e-9)
     }
 
@@ -261,7 +260,7 @@ final class SwingSimulationTests: XCTestCase {
         let block = Surface(bounds: AABB(x: 300, y: 560, width: 160, height: 40), isGrappleable: true)
         let sim = SwingSimulation(level: Level(surfaces: [floor, block], spawn: Vec2(0, 16), killY: -1e9, finishX: .infinity))
         for _ in 0..<30 { sim.step(sim.fixedTimeStep) }  // settle on the floor
-        XCTAssertNotNil(sim.fireGrapple(toward: Vec2(380, 560)))
+        XCTAssertNotNil(sim.fireGrapple(toward: Vec2(380, 560)).anchor)
         for _ in 0..<40 { sim.step(sim.fixedTimeStep) }  // 1/3 s
         XCTAssertEqual(sim.state, .playing)
         XCTAssertGreaterThan(sim.position.y, 100, "a shot from standing should lift the stickman off the platform")

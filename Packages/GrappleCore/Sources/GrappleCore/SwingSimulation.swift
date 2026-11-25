@@ -61,15 +61,16 @@ public final class SwingSimulation {
         ragdoll.reset(torso: level.spawn)
     }
 
-    /// Fires the rope toward a tapped world point. Returns the anchor, or nil on a miss.
+    /// Fires the rope toward a tapped world point.
     @discardableResult
-    public func fireGrapple(toward target: Vec2) -> Vec2? {
-        guard state == .playing,
-              let anchor = GrappleTargeting.findAnchor(from: position, aimAt: target, in: level, tuning: tuning)
-        else { return nil }
-        attachRope(anchor: anchor, length: position.distance(to: anchor))
-        applyAttachTug(toward: anchor)
-        return anchor
+    public func fireGrapple(toward target: Vec2) -> GrappleShot {
+        guard state == .playing else { return .missed(end: position) }
+        let shot = GrappleTargeting.aim(from: position, at: target, in: level, tuning: tuning)
+        if case .attached(let anchor) = shot {
+            attachRope(anchor: anchor, length: position.distance(to: anchor))
+            applyAttachTug(toward: anchor)
+        }
+        return shot
     }
 
     /// Lets go of the rope. Letting go of a taut rope while rising adds `releaseLift` upward;

@@ -170,12 +170,17 @@ final class GameScene: SKScene {
 
         activeTouch = touch
         let point = touch.location(in: self)
-        if simulation.fireGrapple(toward: Vec2(point)) == nil {
-            showMissMarker(at: point)
-        } else if !hasAttachedOnce {
-            hasAttachedOnce = true
-            hintLabel.removeAllActions()
-            hintLabel.run(.fadeOut(withDuration: 0.3))
+        switch simulation.fireGrapple(toward: Vec2(point)) {
+        case .attached:
+            if !hasAttachedOnce {
+                hasAttachedOnce = true
+                hintLabel.removeAllActions()
+                hintLabel.run(.fadeOut(withDuration: 0.3))
+            }
+        case .blocked(let wallPoint):
+            showFailedShot(to: wallPoint, blocked: true)
+        case .missed(let end):
+            showFailedShot(to: end, blocked: false)
         }
     }
 
@@ -214,17 +219,36 @@ final class GameScene: SKScene {
         cameraNode.position = CGPoint(simulation.position + Vec2(0, cameraLift))
     }
 
-    private func showMissMarker(at point: CGPoint) {
-        let s: CGFloat = 14
+    /// A rope that flashes out and clanks off the wall (blocked) or fades at the end of its range (missed),
+    /// so the player can see why the shot failed.
+    private func showFailedShot(to end: Vec2, blocked: Bool) {
         let path = CGMutablePath()
-        path.move(to: CGPoint(x: -s, y: -s)); path.addLine(to: CGPoint(x: s, y: s))
-        path.move(to: CGPoint(x: -s, y: s)); path.addLine(to: CGPoint(x: s, y: -s))
-        let marker = SKShapeNode(path: path)
-        marker.strokeColor = Palette.miss
-        marker.lineWidth = 4
-        marker.lineCap = .round
-        marker.position = point
-        world.addChild(marker)
-        marker.run(.sequence([.fadeOut(withDuration: 0.4), .removeFromParent()]))
+        path.move(to: CGPoint(simulation.ragdoll.ropeHand))
+        path.addLine(to: CGPoint(end))
+        let line = SKShapeNode(path: path)
+        line.strokeColor = Palette.rope
+        line.lineWidth = 3
+        line.lineCap = .round
+        line.alpha = blocked ? 0.9 : 0.35
+        world.addChild(line)
+        line.run(.sequence([.fadeOut(withDuration: 0.25), .removeFromParent()]))
+
+        guard blocked else { return }
+        let sparkPath = CGMutablePath()
+        for i in 0..<8 {
+            let direction = Vec2(1, 0).rotated(by: Double(i) * .pi / 4)
+            sparkPath.move(to: CGPoint(direction * 6))
+            sparkPath.addLine(to: CGPoint(direction * 16))
+        }
+        let spark = SKShapeNode(path: sparkPath)
+        spark.strokeColor = Palette.miss
+        spark.lineWidth = 3
+        spark.lineCap = .round
+        spark.position = CGPoint(end)
+        world.addChild(spark)
+        spark.run(.sequence([
+            .group([.scale(to: 1.6, duration: 0.25), .fadeOut(withDuration: 0.25)]),
+            .removeFromParent(),
+        ]))
     }
 }
