@@ -1,6 +1,6 @@
 {
   "name": "Long Swing",
-  "par": 10,
+  "par": 5,
   "killY": -500,
   "chunks": [
     {"id": "start"},

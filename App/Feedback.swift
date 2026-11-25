@@ -23,11 +23,11 @@ final class Feedback {
     private let notification = UINotificationFeedbackGenerator()
 
     init() {
-        // Playback (not ambient) so sound works even with the silent switch on, while we chase
-        // missing audio; mixWithOthers keeps the player's own music playing.
+        // Ambient: respects the silent switch (the developer keeps the phone on silent) and mixes
+        // with the player's own music.
         let session = AVAudioSession.sharedInstance()
         do {
-            try session.setCategory(.playback, options: [.mixWithOthers])
+            try session.setCategory(.ambient, options: [.mixWithOthers])
             try session.setActive(true)
         } catch {
             print("Feedback: audio session setup failed: \(error)")

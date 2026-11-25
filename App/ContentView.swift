@@ -8,6 +8,7 @@ struct ContentView: View {
 
     @State private var levelIndex = 0
     @State private var scene = GameScene(level: LevelLoader.load(ContentView.levels[0]))
+    @State private var didWireScene = false
     @State private var tuning = Tuning.default
     @State private var showTuning = false
 
@@ -47,12 +48,18 @@ struct ContentView: View {
         .onChange(of: tuning) { _, newValue in
             scene.tuning = newValue
         }
+        .onAppear {
+            guard !didWireScene else { return }
+            didWireScene = true
+            scene.onContinue = { nextLevel() }
+        }
     }
 
     private func nextLevel() {
         levelIndex = (levelIndex + 1) % Self.levels.count
         let next = GameScene(level: LevelLoader.load(Self.levels[levelIndex]))
         next.tuning = tuning
+        next.onContinue = { nextLevel() }
         scene = next
     }
 }

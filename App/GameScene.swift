@@ -42,6 +42,9 @@ final class GameScene: SKScene {
     /// The camera sits this far above the stickman so the grappleable ceiling stays in view.
     private let cameraLift: Double = 300
 
+    /// Called when the player taps after finishing; ContentView moves on to the next level.
+    var onContinue: (() -> Void)?
+
     var tuning: Tuning {
         get { simulation.tuning }
         set { simulation.tuning = newValue }
@@ -77,7 +80,7 @@ final class GameScene: SKScene {
         world.addChild(ropeNode)
         world.addChild(stickman)
 
-        statusLabel.fontSize = 28
+        statusLabel.fontSize = 24
         statusLabel.fontColor = Palette.stickman
         statusLabel.verticalAlignmentMode = .center
         cameraNode.addChild(statusLabel)
@@ -102,7 +105,7 @@ final class GameScene: SKScene {
         swingsLabel.verticalAlignmentMode = .top
         cameraNode.addChild(swingsLabel)
 
-        introLabel.fontSize = 30
+        introLabel.fontSize = 24
         introLabel.numberOfLines = 0
         introLabel.verticalAlignmentMode = .center
         introLabel.fontColor = Palette.stickman
@@ -269,9 +272,9 @@ final class GameScene: SKScene {
                 feedback.play(.crash)
                 feedback.haptic(.heavy)
                 stickman.setCrashed(true)
-                statusLabel.text = simulation.activeCheckpoint == nil
-                    ? "CRASHED!\nTap to try again from the start (your swings still count)"
-                    : "CRASHED!\nTap to try again from the checkpoint flag (your swings still count)"
+                setText(statusLabel, simulation.activeCheckpoint == nil
+                    ? "CRASHED!\nTap to go again from the start\nYour swings still count"
+                    : "CRASHED!\nTap to go again from the checkpoint\nYour swings still count")
             case .finished:
                 activeTouch = nil
                 hitStop = tuning.hitStopSeconds / 2
@@ -362,7 +365,7 @@ final class GameScene: SKScene {
             respawnAfterCrash()
             return
         case .finished:
-            restartLevel()
+            if let onContinue { onContinue() } else { restartLevel() }
             return
         }
 
@@ -439,6 +442,7 @@ final class GameScene: SKScene {
             + "Reach the GOAL flag in \(level.par) swings or fewer\n"
             + "Every rope shot is a swing · grab ◆ gems on the way"
             + (feedback.missingSounds.isEmpty ? "" : "\n⚠️ Sound files missing from the app: run xcodegen and rebuild")
+        setText(introLabel, introLabel.text)
         introLabel.removeAllActions()
         introLabel.alpha = 1
         introLabel.run(.sequence([.wait(forDuration: 4), .fadeOut(withDuration: 0.5)]))
@@ -463,8 +467,19 @@ final class GameScene: SKScene {
         if let best = record.bestStrokes {
             lines.append(String(format: "Best: %d swings · %.1fs", best, record.bestTime ?? result.time))
         }
-        lines.append("Tap to play again")
-        statusLabel.text = lines.joined(separator: "\n")
+        lines.append(onContinue == nil ? "Tap to play again" : "Tap for the next hole")
+        setText(statusLabel, lines.joined(separator: "\n"))
+    }
+
+    /// Sets a HUD label's text and shrinks it to fit within 92% of the screen width.
+    private func setText(_ label: SKLabelNode, _ text: String?) {
+        label.text = text
+        label.setScale(1)
+        let maxWidth = size.width * 0.92
+        let width = label.frame.width
+        if width > maxWidth, width > 0 {
+            label.setScale(maxWidth / width)
+        }
     }
 
     /// Distance from `p` to the edge of the visible world along `direction`, or nil if `p` is off screen.
