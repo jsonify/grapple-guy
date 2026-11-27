@@ -165,6 +165,10 @@ final class SpinTests: XCTestCase {
         var tuning = Tuning()
         tuning.flipChance = chance
         tuning.flipMinSpeed = 300
+        // Pinned (not the defaults) so these tests check the mechanism, not today's feel numbers.
+        tuning.spinSpeedPerRotation = 900
+        tuning.spinMinRotations = 1.2
+        tuning.spinMaxRotations = 3.5
         tuning.releaseLift = 0
         tuning.gravity = 0
         tuning.airDrag = 0

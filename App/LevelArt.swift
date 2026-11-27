@@ -26,7 +26,7 @@ enum LevelArt {
             let windows = CGMutablePath()
             let columns = max(1, Int((r.width - 20) / 34))
             let spacing = (r.width - 20) / CGFloat(columns)
-            for row in 0..<6 {
+            for row in 0..<3 {
                 let y = r.maxY - 46 - CGFloat(row) * 44
                 if y < r.minY + 20 { break }
                 for c in 0..<columns {
@@ -112,10 +112,10 @@ enum LevelArt {
         let node = SKNode()
         let r = rect(b)
 
-        let glow = SKShapeNode(rect: r.insetBy(dx: -12, dy: -12), cornerRadius: 22)
+        let glow = SKShapeNode(rect: r.insetBy(dx: -14, dy: -14), cornerRadius: 24)
         glow.fillColor = Palette.gripGlow
         glow.strokeColor = .clear
-        glow.run(.repeatForever(.sequence([.fadeAlpha(to: 0.4, duration: 0.9), .fadeAlpha(to: 1, duration: 0.9)])))
+        // A steady glow (no pulsing): a screen full of throbbing pads was too busy.
         node.addChild(glow)
 
         let body = SKShapeNode(rect: r, cornerRadius: min(14, r.height / 2))

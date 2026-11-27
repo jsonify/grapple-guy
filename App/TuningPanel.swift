@@ -13,6 +13,7 @@ struct TuningPanel: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 10) {
+                slider("Game speed (×)", $tuning.gameSpeed, 0.4...1.2)
                 slider("Gravity", $tuning.gravity, 200...5000)
                 slider("Swing gravity ×", $tuning.swingGravityMultiplier, 0.5...4)
                 slider("Air drag", $tuning.airDrag, 0...2)

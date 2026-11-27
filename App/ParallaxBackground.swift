@@ -2,7 +2,7 @@ import SpriteKit
 import UIKit
 import GrappleCore
 
-/// Sunset sky, sun, clouds and a two-layer city skyline that scroll slower than the course (issue #20).
+/// Hazy dusk sky, sun, a few clouds and a low, muted two-layer city skyline that scroll slower than the course (issue #20).
 /// Each layer has a depth: 0 = stuck to the camera, 1 = moves with the world.
 final class ParallaxBackground {
     private struct Layer {
@@ -20,7 +20,7 @@ final class ParallaxBackground {
         sky.zPosition = -1000
         camera.addChild(sky)
         let glow = SKShapeNode(circleOfRadius: 120)
-        glow.fillColor = Palette.sun.withAlphaComponent(0.35)
+        glow.fillColor = Palette.sun.withAlphaComponent(0.2)
         glow.strokeColor = .clear
         sun.addChild(glow)
         let disc = SKShapeNode(circleOfRadius: 78)
@@ -33,7 +33,7 @@ final class ParallaxBackground {
         let minX = level.spawn.x - 1500
         let maxX = level.finishX + 1500
         layers = [
-            makeSkyline(depth: 0.15, baseY: -2000, heights: 150...650, widths: 140...280, color: Palette.farCity,
+            makeSkyline(depth: 0.15, baseY: -2000, heights: 0...380, widths: 140...280, color: Palette.farCity,
                         windows: Palette.farWindows, minX: minX, maxX: maxX, z: -30, seed: 3, clouds: true),
             makeSkyline(depth: 0.4, baseY: -3000, heights: -380...80, widths: 180...340, color: Palette.nearCity,
                         windows: Palette.nearWindows, minX: minX, maxX: maxX, z: -20, seed: 11, clouds: false),
@@ -81,7 +81,7 @@ final class ParallaxBackground {
             var cx = from
             while cx <= to {
                 let cloud = SKNode()
-                for _ in 0..<4 {
+                for _ in 0..<3 {
                     let puff = SKShapeNode(circleOfRadius: random.next(34...60))
                     puff.fillColor = Palette.cloud
                     puff.strokeColor = .clear
@@ -90,7 +90,7 @@ final class ParallaxBackground {
                 }
                 cloud.position = CGPoint(x: cx, y: random.next(820...1050))
                 node.addChild(cloud)
-                cx += random.next(600...1000)
+                cx += random.next(1200...2000)
             }
         }
 
@@ -103,9 +103,9 @@ final class ParallaxBackground {
             buildings.addRect(CGRect(x: x, y: baseY, width: width - 6, height: top - baseY))
             // Rooftop details: some buildings get an antenna or a water tower.
             let detail = random.next()
-            if detail < 0.25 {
+            if detail < 0.12 {
                 buildings.addRect(CGRect(x: x + width * 0.45, y: top, width: 6, height: random.next(40...90)))
-            } else if detail < 0.4 {
+            } else if detail < 0.2 {
                 buildings.addRect(CGRect(x: x + width * 0.2, y: top, width: 44, height: 46))
                 buildings.addRect(CGRect(x: x + width * 0.2 + 6, y: top + 46, width: 32, height: 16))
             }
@@ -114,7 +114,7 @@ final class ParallaxBackground {
             while wy > top - 420 {
                 var wx = x + 14
                 while wx < x + width - 30 {
-                    if random.next() < 0.35 {
+                    if random.next() < 0.12 {
                         lights.addRect(CGRect(x: wx, y: wy, width: 12, height: 18))
                     }
                     wx += 26

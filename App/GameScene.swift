@@ -46,7 +46,8 @@ final class GameScene: SKScene {
     private static let botRoster: [(BotSkill, SKColor)] = [(.rookie, Palette.botRita), (.steady, Palette.botSam), (.pro, Palette.botPip)]
 
     private var shownSwings = 0
-    private var hasAttachedOnce = false
+    /// The how-to hint shows until the first grapple of the session, not on every hole.
+    private static var hasAttachedOnce = false
     private var gemNodes: [SKNode] = []
     private var checkpointPennants: [SKShapeNode] = []
     /// 0…1 screen-shake strength, decays every frame.
@@ -67,6 +68,9 @@ final class GameScene: SKScene {
     private let visibleHeight: CGFloat = 1400
     /// The camera sits this far above the stickman so the grappleable ceiling stays in view.
     private let cameraLift: Double = 300
+
+    /// Shown above the level name in the intro, e.g. "Rooftop Nine · Hole 3".
+    var holeLabel: String?
 
     /// Called when the player taps after finishing; ContentView moves on to the next level.
     var onContinue: (() -> Void)?
@@ -118,9 +122,9 @@ final class GameScene: SKScene {
         // Explicit layering (the view ignores sibling order): message cards above the HUD.
         for card in [infoCard, standingsCard, goalCard, swingsCard, windCard, hintCard] { card.zPosition = 10 }
         introCard.zPosition = 20
+        if Self.hasAttachedOnce { hintCard.alpha = 0 }
         penaltyCard.zPosition = 30
         statusCard.zPosition = 40
-        hintCard.run(.repeatForever(.sequence([.fadeAlpha(to: 0.55, duration: 0.8), .fadeAlpha(to: 1, duration: 0.8)])))
 
         showIntro()
 
@@ -147,8 +151,8 @@ final class GameScene: SKScene {
         updateWindCard()
         statusCard.position = CGPoint(x: 0, y: size.height * 0.05)
         introCard.position = CGPoint(x: 0, y: size.height * 0.08)
-        hintCard.set(Theme.text("Tap to shoot your rope at the ORANGE pads · hold to pull in · let go to fly", size: 17),
-                     maxWidth: size.width * 0.9)
+        hintCard.set(Theme.text("Tap an ORANGE pad · hold to pull in · let go to fly", size: 15),
+                     maxWidth: size.width * 0.7)
         hintCard.position = CGPoint(x: 0, y: -size.height / 2 + 40)
     }
 
@@ -208,7 +212,8 @@ final class GameScene: SKScene {
         lastUpdate = currentTime
 
         // Hit-stop: freeze the simulation briefly; rendering (shake, camera) keeps going.
-        var simDt = dt
+        // Game speed: the player and the bots share one scaled clock, so races stay fair.
+        var simDt = dt * max(0.1, tuning.gameSpeed)
         if hitStop > 0 {
             hitStop -= dt
             simDt = 0
@@ -228,8 +233,8 @@ final class GameScene: SKScene {
             case .ropeAttached:
                 feedback.play(.attach)
                 feedback.haptic(.medium)
-                if !hasAttachedOnce {
-                    hasAttachedOnce = true
+                if !Self.hasAttachedOnce {
+                    Self.hasAttachedOnce = true
                     hintCard.removeAllActions()
                     hintCard.run(.fadeOut(withDuration: 0.3))
                 }
@@ -437,14 +442,10 @@ final class GameScene: SKScene {
     private func showIntro() {
         let level = simulation.level
         var parts: [NSAttributedString] = [
-            Theme.text("\(level.name.isEmpty ? "Level" : level.name)\n", size: 38, color: .white, outline: Palette.outline),
-            Theme.text("Reach the ", size: 20),
-            Theme.text("GOAL", size: 20, color: Palette.finish),
-            Theme.text(" in ", size: 20),
-            Theme.text("\(level.par) swings", size: 20, color: Palette.gold),
-            Theme.text(" or fewer\nEvery rope shot is a swing · grab ", size: 20),
-            Theme.text("◆", size: 20, color: Palette.gem),
-            Theme.text(" gems on the way", size: 20),
+            Theme.text(holeLabel.map { "\($0.uppercased())\n" } ?? "", size: 15, color: Palette.hudText.withAlphaComponent(0.7)),
+            Theme.text("\(level.name.isEmpty ? "Level" : level.name)\n", size: 34, color: .white, outline: Palette.outline),
+            Theme.text("Par \(level.par)", size: 20, color: Palette.gold),
+            Theme.text(level.gems.isEmpty ? "" : "  ·  \(level.gems.count) ◆", size: 20, color: Palette.gem),
         ]
         if !feedback.missingSounds.isEmpty {
             parts.append(Theme.text("\n⚠️ Sound files missing: run xcodegen and rebuild", size: 16, color: Palette.overPar))
@@ -452,7 +453,7 @@ final class GameScene: SKScene {
         introCard.set(Theme.join(parts), maxWidth: size.width * 0.9, maxHeight: size.height * 0.7)
         introCard.removeAllActions()
         introCard.alpha = 1
-        introCard.run(.sequence([.wait(forDuration: 4), .fadeOut(withDuration: 0.5)]))
+        introCard.run(.sequence([.wait(forDuration: 2.5), .fadeOut(withDuration: 0.5)]))
     }
 
     private func hideIntro() {
@@ -511,24 +512,26 @@ final class GameScene: SKScene {
             let bot = Bot(level: simulation.level, tuning: tuning, skill: skill,
                           seed: UInt64(index + 1) &* 7919, wind: simulation.wind, ropeRange: reach)
             let stickman = StickmanNode(color: color)
-            stickman.alpha = 0.9
+            stickman.alpha = Palette.botAlpha
             stickman.zPosition = -1
             world.addChild(stickman)
             let outline = SKShapeNode()
-            outline.strokeColor = Palette.outline
-            outline.lineWidth = 6
+            // Ghost ropes: a thin tint with no dark outline, so only your own rope reads strongly.
+            outline.strokeColor = .clear
+            outline.lineWidth = 0
             outline.lineCap = .round
             outline.zPosition = -1.1
             world.addChild(outline)
             let rope = SKShapeNode()
-            rope.strokeColor = color
-            rope.lineWidth = 2.5
+            rope.strokeColor = color.withAlphaComponent(Palette.botAlpha)
+            rope.lineWidth = 2
             rope.lineCap = .round
             rope.zPosition = -1.05
             world.addChild(rope)
             let tag = SKLabelNode()
             tag.attributedText = Theme.text(skill.name.components(separatedBy: " ").last ?? skill.name,
-                                            size: 22, color: color, outline: Palette.outline)
+                                            size: 16, color: color)
+            tag.alpha = 0.7
             tag.zPosition = -0.9
             world.addChild(tag)
             bots.append(BotView(bot: bot, color: color, stickman: stickman, ropeOutline: outline, rope: rope, nameTag: tag))
