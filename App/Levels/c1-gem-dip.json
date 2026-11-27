@@ -1,0 +1,15 @@
+{
+  "name": "Gem Dip",
+  "par": 3,
+  "killY": -500,
+  "chunks": [
+    {"id": "start"},
+    {"id": "ceiling"},
+    {"id": "gem-dive"},
+    {"id": "ceiling"},
+    {"id": "ceiling-gem"},
+    {"id": "low-block"},
+    {"id": "ceiling"},
+    {"id": "finish"}
+  ]
+}

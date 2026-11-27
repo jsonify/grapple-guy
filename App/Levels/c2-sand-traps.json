@@ -1,0 +1,14 @@
+{
+  "name": "Sand Traps",
+  "par": 3,
+  "killY": -500,
+  "chunks": [
+    {"id": "start"},
+    {"id": "fairway"},
+    {"id": "sand-roof"},
+    {"id": "sand-long"},
+    {"id": "fairway"},
+    {"id": "sand-roof"},
+    {"id": "finish"}
+  ]
+}

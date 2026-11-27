@@ -1,0 +1,15 @@
+{
+  "name": "Chimneys",
+  "par": 3,
+  "killY": -500,
+  "chunks": [
+    {"id": "start"},
+    {"id": "rooftop-hop"},
+    {"id": "rooftop-hop", "dy": 80},
+    {"id": "rooftop-hop-gem", "dy": -40},
+    {"id": "checkpoint"},
+    {"id": "rooftop-hop"},
+    {"id": "low-wall"},
+    {"id": "finish"}
+  ]
+}

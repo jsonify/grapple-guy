@@ -1,0 +1,15 @@
+{
+  "name": "Wind Tunnel",
+  "par": 3,
+  "killY": -500,
+  "wind": 220,
+  "chunks": [
+    {"id": "start"},
+    {"id": "ceiling"},
+    {"id": "roof-tunnel"},
+    {"id": "gate"},
+    {"id": "roof-tunnel"},
+    {"id": "window"},
+    {"id": "finish"}
+  ]
+}

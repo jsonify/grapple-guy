@@ -1,0 +1,18 @@
+{
+  "name": "Old Town Loop",
+  "par": 6,
+  "killY": -500,
+  "chunks": [
+    {"id": "start"},
+    {"id": "ceiling"},
+    {"id": "low-wall"},
+    {"id": "gate"},
+    {"id": "window"},
+    {"id": "checkpoint"},
+    {"id": "roof-tunnel"},
+    {"id": "tall-wall"},
+    {"id": "ceiling-gem"},
+    {"id": "ceiling"},
+    {"id": "finish"}
+  ]
+}

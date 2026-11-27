@@ -1,0 +1,17 @@
+{
+  "name": "High Wire",
+  "par": 4,
+  "killY": -500,
+  "wind": 220,
+  "chunks": [
+    {"id": "start"},
+    {"id": "ceiling-small"},
+    {"id": "ceiling-small", "dy": 60},
+    {"id": "ceiling-pair", "dy": 80},
+    {"id": "ceiling-small", "dy": 40},
+    {"id": "long-gap"},
+    {"id": "ceiling-small"},
+    {"id": "gem-sky"},
+    {"id": "finish"}
+  ]
+}

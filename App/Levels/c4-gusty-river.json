@@ -1,0 +1,15 @@
+{
+  "name": "Gusty River",
+  "par": 3,
+  "killY": -500,
+  "wind": 200,
+  "chunks": [
+    {"id": "start"},
+    {"id": "fairway"},
+    {"id": "river-gap"},
+    {"id": "river-wide"},
+    {"id": "barge"},
+    {"id": "river-gem"},
+    {"id": "finish"}
+  ]
+}

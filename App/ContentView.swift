@@ -3,11 +3,16 @@ import SwiftUI
 import GrappleCore
 
 struct ContentView: View {
-    /// Levels the ⏭ button cycles through, in order. A real level select comes with #21.
-    private static let levels = ["level-1", "rooftop-pools", "long-swing", "test-room"]
+    /// Every hole in play order (`App/Levels/courses.json`). ⏭ and finishing a hole move to the next one.
+    private static let holes = LevelLoader.holes
+    /// Level names, for looking up saved stars (progress is keyed by name).
+    private static let holeNames = holes.map { LevelLoader.load($0.file).name }
+    private static let courseNames: [String] = holes.reduce(into: []) { names, hole in
+        if names.last != hole.course { names.append(hole.course) }
+    }
 
     @State private var levelIndex = 0
-    @State private var scene = GameScene(level: LevelLoader.load(ContentView.levels[0]))
+    @State private var scene = ContentView.makeScene(0)
     @State private var didWireScene = false
     @State private var tuning = Tuning.default
     @State private var showTuning = false
@@ -18,7 +23,7 @@ struct ContentView: View {
                 scene: scene,
                 preferredFramesPerSecond: 120,
                 options: [.ignoresSiblingOrder],
-                debugOptions: [.showsFPS]
+                debugOptions: showTuning ? [.showsFPS] : []
             )
             .id(levelIndex)  // present the new scene when the level changes
             .ignoresSafeArea()
@@ -33,6 +38,7 @@ struct ContentView: View {
                     Image(systemName: "arrow.counterclockwise")
                 }
                 .accessibilityLabel("Restart level")
+                holePicker
                 Button {
                     nextLevel()
                 } label: {
@@ -54,9 +60,48 @@ struct ContentView: View {
         }
     }
 
+    /// Course and hole list with saved stars. A full title screen and level select come with #21.
+    private var holePicker: some View {
+        Menu {
+            ForEach(Self.courseNames.indices, id: \.self) { course in
+                Section(Self.courseNames[course]) {
+                    ForEach(Self.holes.indices.filter { Self.holes[$0].courseIndex == course }, id: \.self) { index in
+                        Button("\(Self.holes[index].number). \(Self.holeNames[index])   \(starText(index))") {
+                            play(index)
+                        }
+                    }
+                }
+            }
+        } label: {
+            Text("\(Self.holes[levelIndex].courseIndex + 1)-\(Self.holes[levelIndex].number)")
+        }
+        .menuStyle(.button)
+        .accessibilityLabel("Choose hole")
+    }
+
+    private func starText(_ index: Int) -> String {
+        let stars = ProgressStore.record(for: Self.holeNames[index])?.stars.count ?? 0
+        return String(repeating: "★", count: stars) + String(repeating: "☆", count: 3 - stars)
+    }
+
+    private static func makeScene(_ index: Int) -> GameScene {
+        let hole = holes[index]
+        let scene = GameScene(level: LevelLoader.load(hole.file))
+        scene.holeLabel = "\(hole.course) · Hole \(hole.number)"
+        return scene
+    }
+
     private func nextLevel() {
-        levelIndex = (levelIndex + 1) % Self.levels.count
-        let next = GameScene(level: LevelLoader.load(Self.levels[levelIndex]))
+        play((levelIndex + 1) % Self.holes.count)
+    }
+
+    private func play(_ index: Int) {
+        guard index != levelIndex else {
+            scene.restartLevel()
+            return
+        }
+        levelIndex = index
+        let next = Self.makeScene(index)
         next.tuning = tuning
         next.onContinue = { nextLevel() }
         scene = next

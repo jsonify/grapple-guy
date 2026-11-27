@@ -1,0 +1,14 @@
+{
+  "name": "Crosswind",
+  "par": 3,
+  "killY": -500,
+  "wind": 180,
+  "chunks": [
+    {"id": "start"},
+    {"id": "high-block"},
+    {"id": "long-gap"},
+    {"id": "low-block"},
+    {"id": "high-block"},
+    {"id": "finish"}
+  ]
+}

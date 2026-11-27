@@ -1,0 +1,14 @@
+{
+  "name": "Barges",
+  "par": 4,
+  "killY": -500,
+  "chunks": [
+    {"id": "start"},
+    {"id": "fairway"},
+    {"id": "barge"},
+    {"id": "river-gap"},
+    {"id": "barge-checkpoint"},
+    {"id": "river-wide"},
+    {"id": "finish"}
+  ]
+}

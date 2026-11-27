@@ -1,0 +1,15 @@
+{
+  "name": "Overhangs",
+  "par": 3,
+  "killY": -500,
+  "chunks": [
+    {"id": "start"},
+    {"id": "ceiling"},
+    {"id": "ceiling-overhang"},
+    {"id": "ceiling-wall"},
+    {"id": "ceiling"},
+    {"id": "ceiling-overhang"},
+    {"id": "ceiling-gem-high"},
+    {"id": "finish"}
+  ]
+}

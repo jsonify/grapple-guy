@@ -1,0 +1,14 @@
+{
+  "name": "Through It",
+  "par": 3,
+  "killY": -500,
+  "chunks": [
+    {"id": "start"},
+    {"id": "ceiling"},
+    {"id": "window"},
+    {"id": "ceiling"},
+    {"id": "window", "dy": 40},
+    {"id": "ceiling-gem"},
+    {"id": "finish"}
+  ]
+}

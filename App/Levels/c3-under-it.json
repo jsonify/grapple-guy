@@ -1,0 +1,14 @@
+{
+  "name": "Under It",
+  "par": 3,
+  "killY": -500,
+  "chunks": [
+    {"id": "start"},
+    {"id": "ceiling"},
+    {"id": "gate"},
+    {"id": "ceiling"},
+    {"id": "gate-gem"},
+    {"id": "ceiling"},
+    {"id": "finish"}
+  ]
+}

@@ -16,4 +16,16 @@ enum LevelLoader {
             fatalError("Level \"\(name)\" failed to load: \(error)")
         }
     }
+
+    /// The holes in play order, from `courses.json`.
+    static let holes: [HoleRef] = {
+        guard let url = Bundle.main.url(forResource: "courses", withExtension: "json") else {
+            fatalError("courses.json missing from the app bundle")
+        }
+        do {
+            return try CourseList.decode(Data(contentsOf: url)).allHoles
+        } catch {
+            fatalError("courses.json failed to load: \(error)")
+        }
+    }()
 }
