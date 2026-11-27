@@ -77,7 +77,15 @@ final class GameScene: SKScene {
 
     var tuning: Tuning {
         get { simulation.tuning }
-        set { simulation.tuning = newValue }
+        set {
+            simulation.tuning = newValue
+            for view in bots { view.bot.sim.tuning = newValue }
+        }
+    }
+
+    /// How the bots are drawn (the player's Opponents setting, #36). Hidden bots still race and are scored.
+    var opponents: PlayerSettings.Opponents = .ghosts {
+        didSet { applyOpponentStyle() }
     }
 
     init(level: Level) {
@@ -512,29 +520,38 @@ final class GameScene: SKScene {
             let bot = Bot(level: simulation.level, tuning: tuning, skill: skill,
                           seed: UInt64(index + 1) &* 7919, wind: simulation.wind, ropeRange: reach)
             let stickman = StickmanNode(color: color)
-            stickman.alpha = Palette.botAlpha
             stickman.zPosition = -1
             world.addChild(stickman)
             let outline = SKShapeNode()
-            // Ghost ropes: a thin tint with no dark outline, so only your own rope reads strongly.
-            outline.strokeColor = .clear
-            outline.lineWidth = 0
             outline.lineCap = .round
             outline.zPosition = -1.1
             world.addChild(outline)
             let rope = SKShapeNode()
-            rope.strokeColor = color.withAlphaComponent(Palette.botAlpha)
-            rope.lineWidth = 2
             rope.lineCap = .round
             rope.zPosition = -1.05
             world.addChild(rope)
             let tag = SKLabelNode()
             tag.attributedText = Theme.text(skill.name.components(separatedBy: " ").last ?? skill.name,
                                             size: 16, color: color)
-            tag.alpha = 0.7
             tag.zPosition = -0.9
             world.addChild(tag)
             bots.append(BotView(bot: bot, color: color, stickman: stickman, ropeOutline: outline, rope: rope, nameTag: tag))
+        }
+        applyOpponentStyle()
+    }
+
+    /// Show: solid, outlined bots. Ghosts: see-through tints with thin ropes. Hide: not drawn, no live standings.
+    private func applyOpponentStyle() {
+        for view in bots {
+            let hidden = opponents == .hide
+            let ghost = opponents == .ghosts
+            for node in [view.stickman, view.ropeOutline, view.rope, view.nameTag] as [SKNode] { node.isHidden = hidden }
+            view.stickman.alpha = ghost ? Palette.botAlpha : 1
+            view.ropeOutline.strokeColor = ghost ? .clear : Palette.outline
+            view.ropeOutline.lineWidth = ghost ? 0 : 6
+            view.rope.strokeColor = ghost ? view.color.withAlphaComponent(Palette.botAlpha) : view.color
+            view.rope.lineWidth = ghost ? 2 : 2.5
+            view.nameTag.alpha = ghost ? 0.7 : 1
         }
     }
 
@@ -555,7 +572,11 @@ final class GameScene: SKScene {
                 view.rope.path = nil
             }
         }
-        // Live standings: everyone's swings so far, in race order.
+        // Live standings: everyone's swings so far, in race order (not shown while opponents are hidden).
+        guard opponents != .hide else {
+            standingsCard.set(nil, maxWidth: 0)
+            return
+        }
         let lines = currentStandings().map { entry -> NSAttributedString in
             let name = entry.isPlayer ? "You" : (entry.name.components(separatedBy: " ").last ?? entry.name)
             let flag = entry.time == nil ? "" : " ⚑"

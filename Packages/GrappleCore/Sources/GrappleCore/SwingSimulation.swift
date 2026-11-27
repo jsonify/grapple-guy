@@ -257,7 +257,7 @@ public final class SwingSimulation {
     /// Spider-Man style: a fast upward release sometimes starts a spin; a boosted one always front-spins.
     /// Purely cosmetic: only the ragdoll rotates.
     private func maybeFlip(boosted: Bool) {
-        guard velocity.length >= tuning.flipMinSpeed else { return }
+        guard tuning.allowsSpins, velocity.length >= tuning.flipMinSpeed else { return }
         guard boosted || Double.random(in: 0..<1, using: &random) < tuning.flipChance else { return }
         let front = boosted || Bool.random(using: &random)
         let travel: Double = velocity.x >= 0 ? 1 : -1

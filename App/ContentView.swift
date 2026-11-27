@@ -14,8 +14,16 @@ struct ContentView: View {
     @State private var levelIndex = 0
     @State private var scene = ContentView.makeScene(0)
     @State private var didWireScene = false
+    /// The developer's feel numbers (Tune panel). The game runs with these plus the player's settings.
     @State private var tuning = Tuning.default
     @State private var showTuning = false
+    @State private var settings = SettingsStore.load()
+    @State private var showSettings = false
+    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
+
+    private var effectiveTuning: Tuning {
+        settings.effectiveTuning(from: tuning, systemReduceMotion: systemReduceMotion)
+    }
 
     var body: some View {
         ZStack(alignment: .topTrailing) {
@@ -45,17 +53,32 @@ struct ContentView: View {
                     Image(systemName: "forward.end.fill")
                 }
                 .accessibilityLabel("Next level")
+                Button {
+                    showSettings = true
+                } label: {
+                    Image(systemName: "gearshape.fill")
+                }
+                .accessibilityLabel("Settings")
                 Button(showTuning ? "Done" : "Tune") { showTuning.toggle() }
             }
             .buttonStyle(ChunkyButtonStyle())
             .padding(12)
         }
-        .onChange(of: tuning) { _, newValue in
-            scene.tuning = newValue
+        .sheet(isPresented: $showSettings) {
+            SettingsView(settings: $settings, systemReduceMotion: systemReduceMotion)
+        }
+        .onChange(of: tuning) { _, _ in scene.tuning = effectiveTuning }
+        .onChange(of: systemReduceMotion) { _, _ in scene.tuning = effectiveTuning }
+        .onChange(of: settings) { _, newValue in
+            SettingsStore.save(newValue)
+            scene.tuning = effectiveTuning
+            scene.opponents = newValue.opponents
         }
         .onAppear {
             guard !didWireScene else { return }
             didWireScene = true
+            scene.tuning = effectiveTuning
+            scene.opponents = settings.opponents
             scene.onContinue = { nextLevel() }
         }
     }
@@ -102,7 +125,8 @@ struct ContentView: View {
         }
         levelIndex = index
         let next = Self.makeScene(index)
-        next.tuning = tuning
+        next.tuning = effectiveTuning
+        next.opponents = settings.opponents
         next.onContinue = { nextLevel() }
         scene = next
     }
