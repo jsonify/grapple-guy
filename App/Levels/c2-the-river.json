@@ -1,0 +1,14 @@
+{
+  "name": "The River",
+  "par": 3,
+  "killY": -500,
+  "chunks": [
+    {"id": "start"},
+    {"id": "fairway"},
+    {"id": "river-gap"},
+    {"id": "river-gap", "dy": 40},
+    {"id": "river-gem"},
+    {"id": "fairway"},
+    {"id": "finish"}
+  ]
+}

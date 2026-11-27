@@ -1,0 +1,16 @@
+{
+  "name": "Step Up",
+  "par": 3,
+  "killY": -500,
+  "chunks": [
+    {"id": "start"},
+    {"id": "ceiling"},
+    {"id": "ceiling", "dy": 60},
+    {"id": "ceiling", "dy": 120},
+    {"id": "ceiling", "dy": 180},
+    {"id": "ceiling", "dy": 120},
+    {"id": "ceiling-gem", "dy": 60},
+    {"id": "ceiling"},
+    {"id": "finish"}
+  ]
+}

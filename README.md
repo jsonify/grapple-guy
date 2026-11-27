@@ -16,11 +16,13 @@ Install XcodeGen once:
 brew install xcodegen
 ```
 
-Generate the Xcode project, then open it:
+Generate the Xcode project and open it (also sets up signing the first time, and closes Xcode first so the project isn't regenerated under it):
 
 ```bash
-xcodegen && open GrappleGuy.xcodeproj
+./tools/setup.sh
 ```
+
+Run it again whenever you pull changes that add or remove files.
 
 Set your signing team once in `Config/Local.xcconfig` (git-ignored, so it survives `xcodegen`):
 

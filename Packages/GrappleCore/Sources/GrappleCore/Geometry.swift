@@ -65,14 +65,22 @@ public struct AABB: Equatable, Codable, Sendable {
     }
 }
 
+public enum SurfaceMaterial: String, Codable, Sendable {
+    case normal
+    /// Sand trap: stops you dead, softens landings, and weakens the next rope tug (issue #17).
+    case sand
+}
+
 public struct Surface: Equatable, Codable, Sendable {
     public var bounds: AABB
     /// Whether the rope can stick to this surface. Non-grappleable surfaces still block rope shots.
     public var isGrappleable: Bool
+    public var material: SurfaceMaterial
 
-    public init(bounds: AABB, isGrappleable: Bool) {
+    public init(bounds: AABB, isGrappleable: Bool, material: SurfaceMaterial = .normal) {
         self.bounds = bounds
         self.isGrappleable = isGrappleable
+        self.material = material
     }
 }
 

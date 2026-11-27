@@ -1,0 +1,115 @@
+import SpriteKit
+import UIKit
+import GrappleCore
+
+/// Cartoon rooftops at sunset: colours, fonts and text styling (art direction chosen by the developer).
+enum Palette {
+    // Colour rule: only things you play with are saturated (orange = grab, blue = water, tan = sand,
+    // red flag = goal, white = you). Scenery is muted and hazy so it sits behind the course.
+
+    // Sky and city: a soft, low-contrast dusk.
+    static let skyTop = SKColor(red: 0.36, green: 0.38, blue: 0.52, alpha: 1)
+    static let skyMid = SKColor(red: 0.66, green: 0.60, blue: 0.64, alpha: 1)
+    static let skyBottom = SKColor(red: 0.86, green: 0.78, blue: 0.70, alpha: 1)
+    static let sun = SKColor(red: 1.00, green: 0.93, blue: 0.80, alpha: 1)
+    static let farCity = SKColor(red: 0.64, green: 0.59, blue: 0.65, alpha: 1)
+    static let farWindows = SKColor(red: 1.00, green: 0.92, blue: 0.78, alpha: 0.22)
+    static let nearCity = SKColor(red: 0.47, green: 0.44, blue: 0.53, alpha: 1)
+    static let nearWindows = SKColor(red: 1.00, green: 0.88, blue: 0.68, alpha: 0.3)
+    static let cloud = SKColor(red: 1.00, green: 0.95, blue: 0.92, alpha: 0.35)
+    static let background = skyBottom
+
+    // Course
+    static let outline = SKColor(red: 0.12, green: 0.09, blue: 0.18, alpha: 1)
+    static let rooftop = SKColor(red: 0.31, green: 0.32, blue: 0.39, alpha: 1)
+    static let rooftopRim = SKColor(red: 0.52, green: 0.54, blue: 0.62, alpha: 1)
+    static let rooftopWindow = SKColor(red: 0.27, green: 0.28, blue: 0.34, alpha: 1)
+    static let grip = SKColor(red: 1.00, green: 0.55, blue: 0.13, alpha: 1)
+    static let gripLight = SKColor(red: 1.00, green: 0.80, blue: 0.38, alpha: 1)
+    static let gripGlow = SKColor(red: 1.00, green: 0.62, blue: 0.22, alpha: 0.28)
+
+    static let water = SKColor(red: 0.22, green: 0.58, blue: 0.98, alpha: 0.92)
+    static let waterLight = SKColor(red: 0.62, green: 0.86, blue: 1.00, alpha: 1)
+    static let sand = SKColor(red: 0.98, green: 0.84, blue: 0.54, alpha: 1)
+    static let sandDark = SKColor(red: 0.85, green: 0.66, blue: 0.36, alpha: 1)
+
+    // Characters and pickups
+    static let stickman = SKColor(red: 0.98, green: 0.97, blue: 0.95, alpha: 1)
+    static let crashed = SKColor(red: 1.00, green: 0.38, blue: 0.33, alpha: 1)
+    static let rope = SKColor(red: 0.97, green: 0.97, blue: 1.00, alpha: 1)
+    static let gem = SKColor(red: 0.28, green: 0.95, blue: 0.86, alpha: 1)
+    static let flag = SKColor(red: 0.95, green: 0.22, blue: 0.27, alpha: 1)
+    static let checkpoint = SKColor(red: 1.00, green: 0.85, blue: 0.25, alpha: 1)
+    static let finish = SKColor(red: 0.32, green: 0.86, blue: 0.42, alpha: 1)
+    static let boost = SKColor(red: 0.42, green: 0.86, blue: 1.00, alpha: 1)
+    static let miss = SKColor(red: 1.00, green: 0.42, blue: 0.36, alpha: 1)
+
+    // Bots (#32): soft pastel tints, drawn as see-through "ghosts" so they never compete with you.
+    static let botRita = SKColor(red: 0.90, green: 0.74, blue: 0.82, alpha: 1)
+    static let botSam = SKColor(red: 0.76, green: 0.88, blue: 0.76, alpha: 1)
+    static let botPip = SKColor(red: 0.74, green: 0.84, blue: 0.94, alpha: 1)
+    static let botAlpha: CGFloat = 0.45
+
+    // HUD
+    static let hudPanel = SKColor(red: 0.12, green: 0.09, blue: 0.20, alpha: 0.82)
+    static let hudBorder = SKColor(white: 1, alpha: 0.9)
+    static let hudText = SKColor.white
+    static let gold = SKColor(red: 1.00, green: 0.84, blue: 0.22, alpha: 1)
+    static let overPar = SKColor(red: 1.00, green: 0.48, blue: 0.42, alpha: 1)
+}
+
+enum Theme {
+    static let heavyFont = "AvenirNext-Heavy"
+    static let boldFont = "AvenirNext-Bold"
+
+    /// Centered, optionally outlined text for SKLabelNode.attributedText.
+    static func text(_ string: String, size: CGFloat, color: SKColor = Palette.hudText,
+                     outline: SKColor? = nil, font: String = heavyFont) -> NSAttributedString {
+        let paragraph = NSMutableParagraphStyle()
+        paragraph.alignment = .center
+        paragraph.lineSpacing = 2
+        var attributes: [NSAttributedString.Key: Any] = [
+            .font: UIFont(name: font, size: size) ?? .systemFont(ofSize: size, weight: .heavy),
+            .foregroundColor: color,
+            .paragraphStyle: paragraph,
+        ]
+        if let outline {
+            attributes[.strokeColor] = outline
+            attributes[.strokeWidth] = -5.0  // negative: fill and stroke
+        }
+        return NSAttributedString(string: string, attributes: attributes)
+    }
+}
+
+extension Theme {
+    /// Concatenates styled pieces (a join, not `+`, keeps the type checker fast).
+    static func join(_ parts: [NSAttributedString]) -> NSAttributedString {
+        let joined = NSMutableAttributedString()
+        for part in parts { joined.append(part) }
+        return joined
+    }
+}
+
+extension CGPoint {
+    init(_ v: Vec2) { self.init(x: v.x, y: v.y) }
+}
+
+extension Vec2 {
+    init(_ p: CGPoint) { self.init(Double(p.x), Double(p.y)) }
+}
+
+/// Small deterministic generator for scenery layout (so the skyline doesn't change between runs).
+struct SceneryRandom {
+    private var state: UInt64
+
+    init(seed: UInt64) { state = seed &+ 0x9E37_79B9_7F4A_7C15 }
+
+    mutating func next() -> Double {
+        state = state &* 6_364_136_223_846_793_005 &+ 1_442_695_040_888_963_407
+        return Double(state >> 11) / Double(1 << 53)
+    }
+
+    mutating func next(_ range: ClosedRange<Double>) -> Double {
+        range.lowerBound + next() * (range.upperBound - range.lowerBound)
+    }
+}

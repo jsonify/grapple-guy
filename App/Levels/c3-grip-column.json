@@ -1,0 +1,14 @@
+{
+  "name": "Grip Column",
+  "par": 3,
+  "killY": -500,
+  "chunks": [
+    {"id": "start"},
+    {"id": "ceiling"},
+    {"id": "pad-column"},
+    {"id": "ceiling"},
+    {"id": "pad-column", "dy": 60},
+    {"id": "ceiling-gem"},
+    {"id": "finish"}
+  ]
+}

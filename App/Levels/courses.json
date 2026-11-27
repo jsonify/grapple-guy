@@ -1,0 +1,60 @@
+{
+  "courses": [
+    {
+      "name": "Rooftop Nine",
+      "holes": [
+        "level-1",
+        "c1-step-up",
+        "c1-gem-dip",
+        "c1-big-gaps",
+        "c1-little-pads",
+        "c1-first-wall",
+        "c1-down-low",
+        "c1-rest-stop",
+        "c1-rooftop-run"
+      ]
+    },
+    {
+      "name": "Harbor Nine",
+      "holes": [
+        "c2-wet-feet",
+        "rooftop-pools",
+        "c2-the-river",
+        "c2-sand-traps",
+        "c2-barges",
+        "c2-long-pool",
+        "c2-bunker-wall",
+        "c2-wide-water",
+        "c2-harbor-tour"
+      ]
+    },
+    {
+      "name": "Old Town Nine",
+      "holes": [
+        "c3-over-it",
+        "c3-under-it",
+        "c3-through-it",
+        "c3-the-tunnel",
+        "c3-the-climb",
+        "c3-grip-column",
+        "c3-overhangs",
+        "c3-chimneys",
+        "c3-old-town"
+      ]
+    },
+    {
+      "name": "Skyline Nine",
+      "holes": [
+        "c4-breezy",
+        "c4-crosswind",
+        "long-swing",
+        "c4-gusty-river",
+        "c4-wind-tunnel",
+        "c4-sky-hop",
+        "c4-storm-front",
+        "c4-high-wire",
+        "c4-grand-finale"
+      ]
+    }
+  ]
+}

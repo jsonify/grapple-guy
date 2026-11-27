@@ -1,0 +1,24 @@
+{
+  "name": "Grand Finale",
+  "par": 7,
+  "killY": -500,
+  "wind": 240,
+  "chunks": [
+    {"id": "start"},
+    {"id": "ceiling"},
+    {"id": "high-block"},
+    {"id": "low-wall"},
+    {"id": "river-gap"},
+    {"id": "barge-checkpoint"},
+    {"id": "window"},
+    {"id": "roof-tunnel"},
+    {"id": "rest-platform"},
+    {"id": "tall-wall"},
+    {"id": "ceiling-gem"},
+    {"id": "ceiling"},
+    {"id": "long-gap"},
+    {"id": "sand-step"},
+    {"id": "river-wide"},
+    {"id": "finish"}
+  ]
+}

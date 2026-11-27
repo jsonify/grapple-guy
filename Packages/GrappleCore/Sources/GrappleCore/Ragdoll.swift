@@ -1,3 +1,5 @@
+import Foundation
+
 /// Stick-figure body simulated as Verlet points joined by fixed-length bones (issues #12, #13).
 ///
 /// While alive, the head, neck and pelvis (and the rope hand, when roped) are pinned to the torso;
@@ -42,6 +44,11 @@ public struct Ragdoll: Sendable {
     /// Smoothed direction from pelvis to head while alive.
     public private(set) var up = Vec2(0, 1)
 
+    /// Cosmetic airborne spin (Spider-Man flips): +1 counter-clockwise, -1 clockwise, nil when not spinning.
+    /// The body keeps rotating, tucked, until the simulation stops it; the torso path is unaffected.
+    public private(set) var spinDirection: Double?
+    public var isSpinning: Bool { spinDirection != nil }
+
     public init(torso: Vec2) {
         points = Array(repeating: torso, count: Joint.allCases.count)
         previous = points
@@ -55,25 +62,47 @@ public struct Ragdoll: Sendable {
 
     public mutating func reset(torso: Vec2) {
         isLimp = false
+        spinDirection = nil
         up = Vec2(0, 1)
-        points = restPose(torso: torso, up: up, ropeAnchor: nil)
+        points = restPose(torso: torso, up: up, ropeAnchor: nil, tucked: false)
         previous = points
     }
 
     /// Releases every pin. Pinned points were moved with the torso each step, so their momentum carries over.
     public mutating func goLimp() {
         isLimp = true
+        spinDirection = nil
     }
 
-    public mutating func step(dt: Double, torso: Vec2, velocity: Vec2, ropeAnchor: Vec2?, level: Level, tuning: Tuning) {
+    /// Starts spinning. `direction`: +1 counter-clockwise, -1 clockwise.
+    public mutating func startSpin(direction: Double) {
+        guard !isLimp else { return }
+        spinDirection = direction >= 0 ? 1 : -1
+    }
+
+    /// Stops spinning; the body then rotates back upright (or toward the rope).
+    public mutating func stopSpin() {
+        spinDirection = nil
+    }
+
+    /// `spinRate`: radians per second while spinning (set by the simulation from the stickman's speed).
+    public mutating func step(dt: Double, torso: Vec2, velocity: Vec2, ropeAnchor: Vec2?, level: Level, tuning: Tuning,
+                              spinRate: Double = 0) {
         if !isLimp {
-            // Hang toward the anchor on a rope; otherwise stay mostly upright, leaning into motion.
-            let targetUp = ropeAnchor.map { ($0 - torso).normalized } ?? Vec2(velocity.x * 0.0004, 1).normalized
-            let blended = (up + (targetUp - up) * min(1, 12 * dt)).normalized
-            up = blended == .zero ? Vec2(0, 1) : blended
+            if ropeAnchor != nil { spinDirection = nil }  // catching a rope ends a spin
+            if let direction = spinDirection {
+                up = up.rotated(by: direction * spinRate * dt).normalized
+            } else {
+                // Hang toward the anchor on a rope; otherwise stay mostly upright, leaning into motion.
+                // Rotate by angle (not by blending vectors) so coming out of a spin upside down doesn't snap.
+                let targetUp = ropeAnchor.map { ($0 - torso).normalized } ?? Vec2(velocity.x * 0.0004, 1).normalized
+                let angle = atan2(up.cross(targetUp), up.dot(targetUp))
+                up = up.rotated(by: angle * min(1, 12 * dt)).normalized
+                if up == .zero { up = Vec2(0, 1) }
+            }
         }
 
-        let pose = restPose(torso: torso, up: up, ropeAnchor: ropeAnchor)
+        let pose = restPose(torso: torso, up: up, ropeAnchor: ropeAnchor, tucked: spinDirection != nil)
         let pinned = pinnedMask(roped: ropeAnchor != nil)
         let damping = max(0, 1 - tuning.limbDamping * dt)
         let gravityStep = Vec2(0, -tuning.gravity * dt * dt)
@@ -110,8 +139,10 @@ public struct Ragdoll: Sendable {
     }
 
     /// Target position of every joint for a body centered on `torso`, pointing along `up`.
-    func restPose(torso: Vec2, up: Vec2, ropeAnchor: Vec2?) -> [Vec2] {
+    func restPose(torso: Vec2, up: Vec2, ropeAnchor: Vec2?, tucked: Bool = false) -> [Vec2] {
         let down = -up
+        /// Body-relative "forward" (to the stickman's right when upright).
+        let forward = Vec2(up.y, -up.x)
         let body = torso + up * Self.bodyLift
         let neck = body + up * Self.halfSpine
         let pelvis = body - up * Self.halfSpine
@@ -122,6 +153,23 @@ public struct Ragdoll: Sendable {
         set(.neck, neck)
         set(.pelvis, pelvis)
         set(.head, neck + up * Self.neckToHead)
+
+        if tucked {
+            // Tucked spin: knees pulled to the chest, hands grabbing the shins.
+            let thigh = (forward * 0.95 + up * 0.3).normalized
+            let shin = (down * 0.9 + forward * 0.2).normalized
+            for (knee, foot, spread) in [(Joint.leftKnee, Joint.leftFoot, -2.0), (.rightKnee, .rightFoot, 2.0)] {
+                let kneePoint = pelvis + thigh * 12 + up * spread
+                set(knee, kneePoint)
+                set(foot, kneePoint + shin * 12)
+            }
+            let arm = (forward * 0.8 + down * 0.6).normalized
+            set(.leftElbow, neck + arm * 10 + up * 2)
+            set(.leftHand, neck + arm * 20)
+            set(.rightElbow, neck + arm * 10 - up * 2)
+            set(.rightHand, neck + arm * 20)
+            return p
+        }
 
         let leftArm = down.rotated(by: -1.2)
         set(.leftElbow, neck + leftArm * 10)

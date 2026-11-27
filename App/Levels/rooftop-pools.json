@@ -1,0 +1,19 @@
+{
+  "name": "Rooftop Pools",
+  "par": 4,
+  "killY": -500,
+  "wind": 220,
+  "chunks": [
+    {"id": "start"},
+    {"id": "fairway"},
+    {"id": "river-gap"},
+    {"id": "pool-roof"},
+    {"id": "sand-roof"},
+    {"id": "river-gap"},
+    {"id": "bunker-island"},
+    {"id": "river-gap"},
+    {"id": "fairway"},
+    {"id": "pool-roof"},
+    {"id": "finish"}
+  ]
+}

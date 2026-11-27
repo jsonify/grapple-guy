@@ -1,0 +1,14 @@
+{
+  "name": "Over It",
+  "par": 3,
+  "killY": -500,
+  "chunks": [
+    {"id": "start"},
+    {"id": "ceiling"},
+    {"id": "low-wall"},
+    {"id": "ceiling"},
+    {"id": "low-wall", "dy": 40},
+    {"id": "ceiling"},
+    {"id": "finish"}
+  ]
+}

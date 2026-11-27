@@ -1,0 +1,18 @@
+{
+  "name": "Rooftop Run",
+  "par": 5,
+  "killY": -500,
+  "chunks": [
+    {"id": "start"},
+    {"id": "ceiling"},
+    {"id": "rooftop-hop"},
+    {"id": "ceiling-pair"},
+    {"id": "rooftop-hop-gem"},
+    {"id": "checkpoint"},
+    {"id": "high-block"},
+    {"id": "long-gap"},
+    {"id": "ceiling-gem-arc"},
+    {"id": "low-wall"},
+    {"id": "finish"}
+  ]
+}

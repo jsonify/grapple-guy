@@ -114,7 +114,7 @@ final class LevelFormatTests: XCTestCase {
     func testEveryShippedLevelLoads() throws {
         let chunks = try Data(contentsOf: levelsDirectory.appendingPathComponent("chunks.json"))
         let files = try FileManager.default.contentsOfDirectory(at: levelsDirectory, includingPropertiesForKeys: nil)
-            .filter { $0.pathExtension == "json" && $0.lastPathComponent != "chunks.json" }
+            .filter { $0.pathExtension == "json" && !["chunks.json", "courses.json"].contains($0.lastPathComponent) }
         XCTAssertFalse(files.isEmpty, "no level files found in \(levelsDirectory.path)")
         for file in files {
             XCTAssertNoThrow(try LevelBuilder.load(levelData: Data(contentsOf: file), chunkData: chunks),

@@ -1,0 +1,14 @@
+{
+  "name": "The Climb",
+  "par": 3,
+  "killY": -500,
+  "chunks": [
+    {"id": "start"},
+    {"id": "ceiling"},
+    {"id": "tall-wall"},
+    {"id": "ceiling", "dy": 80},
+    {"id": "tall-wall", "dy": 80},
+    {"id": "ceiling"},
+    {"id": "finish"}
+  ]
+}

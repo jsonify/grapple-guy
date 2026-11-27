@@ -1,6 +1,6 @@
 {
   "name": "Test Room",
-  "par": 12,
+  "par": 4,
   "killY": -500,
   "chunks": [
     {"id": "start"},

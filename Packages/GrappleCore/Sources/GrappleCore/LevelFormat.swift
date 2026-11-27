@@ -20,6 +20,10 @@ public enum ChunkElement: Equatable, Sendable, Decodable {
     case gem(Vec2)
     /// Crossing its x activates it; crashes then respawn here. JSON: `{"type": "checkpoint", "at": [x, y]}`
     case checkpoint(Vec2)
+    /// Water hazard region: +1 penalty stroke. JSON: `{"type": "water", "rect": [x, y, w, h]}`
+    case water(AABB)
+    /// Sand trap surface (solid). JSON: `{"type": "sand", "rect": [x, y, w, h]}`
+    case sand(AABB)
 
     private enum CodingKeys: String, CodingKey { case type, rect, at, x }
 
@@ -32,6 +36,8 @@ public enum ChunkElement: Equatable, Sendable, Decodable {
         case "spawn": self = .spawn(try Self.decodePoint(c))
         case "gem": self = .gem(try Self.decodePoint(c))
         case "checkpoint": self = .checkpoint(try Self.decodePoint(c))
+        case "water": self = .water(try Self.decodeRect(c))
+        case "sand": self = .sand(try Self.decodeRect(c))
         case "finish": self = .finish(x: try c.decode(Double.self, forKey: .x))
         default:
             throw DecodingError.dataCorruptedError(forKey: .type, in: c, debugDescription: "unknown element type \"\(type)\"")
@@ -84,13 +90,16 @@ public struct LevelDefinition: Equatable, Sendable, Decodable {
     public var name: String
     /// Target strokes (rope shots) for the par star.
     public var par: Int
-    /// Falling below this height is a crash.
+    /// Falling below this height is out of bounds (+1 stroke).
     public var killY: Double
+    /// Maximum wind strength (points/s²); optional, default calm.
+    public var wind: Double?
     public var chunks: [ChunkPlacement]
 
-    public init(name: String, par: Int, killY: Double, chunks: [ChunkPlacement]) {
+    public init(name: String, par: Int, killY: Double, wind: Double? = nil, chunks: [ChunkPlacement]) {
         self.name = name
         self.par = par
+        self.wind = wind
         self.killY = killY
         self.chunks = chunks
     }
@@ -137,6 +146,7 @@ public enum LevelBuilder {
         var surfaces: [Surface] = []
         var gems: [Vec2] = []
         var checkpoints: [Checkpoint] = []
+        var water: [AABB] = []
         var spawns: [Vec2] = []
         var finishes: [Double] = []
         var x = 0.0
@@ -152,6 +162,8 @@ public enum LevelBuilder {
                 case .finish(let finishX): finishes.append(finishX + offset.x)
                 case .gem(let point): gems.append(point + offset)
                 case .checkpoint(let point): checkpoints.append(Checkpoint(position: point + offset))
+                case .water(let box): water.append(box.offset(by: offset))
+                case .sand(let box): surfaces.append(Surface(bounds: box.offset(by: offset), isGrappleable: false, material: .sand))
                 }
             }
             x += chunk.width
@@ -162,7 +174,8 @@ public enum LevelBuilder {
         guard let finishX = finishes.first else { throw LevelLoadError.missingFinish }
         guard finishes.count == 1 else { throw LevelLoadError.multipleFinishes }
         return Level(surfaces: surfaces, spawn: spawn, killY: definition.killY, finishX: finishX,
-                     name: definition.name, par: definition.par, gems: gems, checkpoints: checkpoints)
+                     name: definition.name, par: definition.par, gems: gems, checkpoints: checkpoints,
+                     water: water, windRange: max(0, definition.wind ?? 0))
     }
 
     /// Decodes a level file and a chunk library and builds the level.

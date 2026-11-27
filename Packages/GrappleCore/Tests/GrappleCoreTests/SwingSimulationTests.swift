@@ -212,11 +212,17 @@ final class SwingSimulationTests: XCTestCase {
         XCTAssertNil(sim.rope)
     }
 
-    func testFallingBelowKillYCrashes() {
+    func testFallingBelowKillYIsOutOfBoundsPenalty() {
         let sim = SwingSimulation(level: emptyLevel(killY: -100), tuning: noDrag())
         let events = sim.update(deltaTime: 0.25) + sim.update(deltaTime: 0.25)
-        XCTAssertEqual(sim.state, .crashed)
-        XCTAssertEqual(events, [.crashed])
+        XCTAssertEqual(sim.state, .playing, "out of bounds costs a stroke, not the run")
+        XCTAssertEqual(sim.strokes, 1)
+        XCTAssertEqual(sim.penalties, 1)
+        // Back at the safe spot (spawn); the rest of the frame keeps simulating, so allow a little fall.
+        XCTAssertEqual(sim.position.x, 0, accuracy: 1e-9)
+        XCTAssertGreaterThan(sim.position.y, -50, "back to the safe spot (spawn)")
+        guard case .penalty(.outOfBounds, let at)? = events.first else { return XCTFail("expected OB, got \(events)") }
+        XCTAssertLessThan(at.y, -100)
     }
 
     func testGentleLandingDoesNotCrash() {
@@ -356,7 +362,9 @@ final class SwingSimulationTests: XCTestCase {
     }
 
     func testResetRestoresSpawn() {
-        let sim = SwingSimulation(level: emptyLevel(killY: -10))
+        let floor = Surface(bounds: AABB(x: -500, y: -150, width: 1000, height: 50), isGrappleable: false)
+        let sim = SwingSimulation(level: emptyLevel(surfaces: [floor]))
+        sim.velocity = Vec2(0, -(sim.tuning.crashImpactSpeed + 500))
         sim.update(deltaTime: 0.25)
         XCTAssertEqual(sim.state, .crashed)
         sim.reset()

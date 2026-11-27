@@ -1,0 +1,14 @@
+{
+  "name": "Wide Water",
+  "par": 4,
+  "killY": -500,
+  "chunks": [
+    {"id": "start"},
+    {"id": "fairway"},
+    {"id": "river-wide"},
+    {"id": "river-gem"},
+    {"id": "river-wide", "dy": 40},
+    {"id": "barge"},
+    {"id": "finish"}
+  ]
+}

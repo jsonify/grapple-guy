@@ -1,0 +1,19 @@
+{
+  "name": "Harbor Tour",
+  "par": 5,
+  "killY": -500,
+  "chunks": [
+    {"id": "start"},
+    {"id": "fairway"},
+    {"id": "pool-roof"},
+    {"id": "river-gap"},
+    {"id": "barge"},
+    {"id": "sand-roof"},
+    {"id": "barge-checkpoint"},
+    {"id": "river-wide"},
+    {"id": "bunker-island"},
+    {"id": "river-gem"},
+    {"id": "pool-long"},
+    {"id": "finish"}
+  ]
+}

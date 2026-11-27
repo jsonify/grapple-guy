@@ -1,0 +1,16 @@
+{
+  "name": "Rest Stop",
+  "par": 4,
+  "killY": -500,
+  "chunks": [
+    {"id": "start"},
+    {"id": "ceiling"},
+    {"id": "high-block"},
+    {"id": "low-block"},
+    {"id": "rest-platform"},
+    {"id": "gem-sky"},
+    {"id": "long-gap"},
+    {"id": "high-block"},
+    {"id": "finish"}
+  ]
+}

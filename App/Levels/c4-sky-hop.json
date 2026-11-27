@@ -1,0 +1,17 @@
+{
+  "name": "Sky Hop",
+  "par": 4,
+  "killY": -500,
+  "wind": 180,
+  "chunks": [
+    {"id": "start"},
+    {"id": "rooftop-hop"},
+    {"id": "long-gap"},
+    {"id": "rooftop-hop-gem"},
+    {"id": "high-block"},
+    {"id": "rest-platform"},
+    {"id": "long-gap"},
+    {"id": "rooftop-hop"},
+    {"id": "finish"}
+  ]
+}

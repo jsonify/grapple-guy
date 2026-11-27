@@ -64,6 +64,291 @@
     ]
   },
   {
+    "id": "high-block",
+    "width": 650,
+    "elements": [
+      {"type": "grapple", "rect": [245, 780, 160, 40]}
+    ]
+  },
+  {
+    "id": "low-block",
+    "width": 650,
+    "elements": [
+      {"type": "grapple", "rect": [245, 440, 160, 40]}
+    ]
+  },
+  {
+    "id": "gem-dive",
+    "width": 650,
+    "elements": [
+      {"type": "grapple", "rect": [245, 720, 160, 40]},
+      {"type": "gem", "at": [325, 140]}
+    ]
+  },
+  {
+    "id": "gem-sky",
+    "width": 650,
+    "elements": [
+      {"type": "grapple", "rect": [245, 700, 160, 40]},
+      {"type": "gem", "at": [560, 980]}
+    ]
+  },
+  {
+    "id": "long-gap",
+    "width": 900,
+    "elements": [
+      {"type": "grapple", "rect": [620, 800, 180, 40]}
+    ]
+  },
+  {
+    "id": "rest-platform",
+    "width": 650,
+    "elements": [
+      {"type": "solid", "rect": [150, -40, 350, 40]},
+      {"type": "checkpoint", "at": [325, 40]},
+      {"type": "grapple", "rect": [245, 720, 160, 40]}
+    ]
+  },
+  {
+    "id": "fairway",
+    "width": 650,
+    "elements": [
+      {"type": "solid", "rect": [0, -40, 650, 40]},
+      {"type": "grapple", "rect": [245, 620, 160, 40]}
+    ]
+  },
+  {
+    "id": "pool-roof",
+    "width": 650,
+    "elements": [
+      {"type": "solid", "rect": [0, -40, 170, 40]},
+      {"type": "solid", "rect": [480, -40, 170, 40]},
+      {"type": "solid", "rect": [170, -90, 310, 50]},
+      {"type": "water", "rect": [170, -40, 310, 40]},
+      {"type": "grapple", "rect": [245, 640, 160, 40]}
+    ]
+  },
+  {
+    "id": "river-gap",
+    "width": 650,
+    "elements": [
+      {"type": "water", "rect": [0, -420, 650, 220]},
+      {"type": "grapple", "rect": [245, 640, 160, 40]}
+    ]
+  },
+  {
+    "id": "sand-roof",
+    "width": 650,
+    "elements": [
+      {"type": "solid", "rect": [0, -40, 180, 40]},
+      {"type": "sand", "rect": [180, -40, 290, 40]},
+      {"type": "solid", "rect": [470, -40, 180, 40]},
+      {"type": "grapple", "rect": [245, 620, 160, 40]}
+    ]
+  },
+  {
+    "id": "bunker-island",
+    "width": 650,
+    "elements": [
+      {"type": "sand", "rect": [150, -40, 350, 40]},
+      {"type": "gem", "at": [325, 260]},
+      {"type": "grapple", "rect": [245, 660, 160, 40]}
+    ]
+  },
+  {
+    "id": "ceiling-small",
+    "width": 420,
+    "elements": [
+      {"type": "grapple", "rect": [160, 560, 100, 40]}
+    ]
+  },
+  {
+    "id": "ceiling-pair",
+    "width": 650,
+    "elements": [
+      {"type": "grapple", "rect": [90, 560, 140, 40]},
+      {"type": "grapple", "rect": [420, 640, 140, 40]}
+    ]
+  },
+  {
+    "id": "ceiling-gem-arc",
+    "width": 650,
+    "elements": [
+      {"type": "grapple", "rect": [245, 640, 160, 40]},
+      {"type": "gem", "at": [560, 520]}
+    ]
+  },
+  {
+    "id": "low-pad",
+    "width": 650,
+    "elements": [
+      {"type": "grapple", "rect": [245, 360, 160, 40]}
+    ]
+  },
+  {
+    "id": "low-pad-gem",
+    "width": 650,
+    "elements": [
+      {"type": "grapple", "rect": [245, 380, 160, 40]},
+      {"type": "gem", "at": [325, -120]}
+    ]
+  },
+  {
+    "id": "low-wall",
+    "width": 650,
+    "elements": [
+      {"type": "grapple", "rect": [160, 640, 160, 40]},
+      {"type": "solid", "rect": [500, -600, 70, 840]}
+    ]
+  },
+  {
+    "id": "tall-wall",
+    "width": 650,
+    "elements": [
+      {"type": "grapple", "rect": [140, 760, 160, 40]},
+      {"type": "solid", "rect": [470, -600, 80, 1020]}
+    ]
+  },
+  {
+    "id": "gate",
+    "width": 650,
+    "elements": [
+      {"type": "solid", "rect": [200, 700, 220, 920]},
+      {"type": "grapple", "rect": [200, 660, 220, 40]},
+      {"type": "solid", "rect": [420, 320, 70, 1300]},
+      {"type": "grapple", "rect": [540, 560, 110, 40]}
+    ]
+  },
+  {
+    "id": "gate-gem",
+    "width": 650,
+    "elements": [
+      {"type": "solid", "rect": [200, 700, 220, 920]},
+      {"type": "grapple", "rect": [200, 660, 220, 40]},
+      {"type": "solid", "rect": [420, 320, 70, 1300]},
+      {"type": "grapple", "rect": [540, 560, 110, 40]},
+      {"type": "gem", "at": [455, 140]}
+    ]
+  },
+  {
+    "id": "window",
+    "width": 650,
+    "elements": [
+      {"type": "grapple", "rect": [120, 680, 160, 40]},
+      {"type": "solid", "rect": [420, -600, 70, 780]},
+      {"type": "solid", "rect": [420, 620, 70, 1000]}
+    ]
+  },
+  {
+    "id": "roof-tunnel",
+    "width": 900,
+    "elements": [
+      {"type": "solid", "rect": [0, 820, 900, 6000]},
+      {"type": "grapple", "rect": [160, 620, 140, 40]},
+      {"type": "grapple", "rect": [580, 620, 140, 40]}
+    ]
+  },
+  {
+    "id": "pad-column",
+    "width": 650,
+    "elements": [
+      {"type": "grapple", "rect": [300, 120, 60, 640]}
+    ]
+  },
+  {
+    "id": "rooftop-hop",
+    "width": 650,
+    "elements": [
+      {"type": "solid", "rect": [180, -600, 300, 780]},
+      {"type": "grapple", "rect": [250, 900, 160, 40]}
+    ]
+  },
+  {
+    "id": "rooftop-hop-gem",
+    "width": 650,
+    "elements": [
+      {"type": "solid", "rect": [180, -600, 300, 780]},
+      {"type": "grapple", "rect": [250, 900, 160, 40]},
+      {"type": "gem", "at": [330, 320]}
+    ]
+  },
+  {
+    "id": "pool-long",
+    "width": 900,
+    "elements": [
+      {"type": "solid", "rect": [0, -40, 150, 40]},
+      {"type": "solid", "rect": [150, -90, 600, 50]},
+      {"type": "water", "rect": [150, -40, 600, 40]},
+      {"type": "solid", "rect": [750, -40, 150, 40]},
+      {"type": "grapple", "rect": [370, 650, 160, 40]}
+    ]
+  },
+  {
+    "id": "river-wide",
+    "width": 900,
+    "elements": [
+      {"type": "water", "rect": [0, -420, 900, 220]},
+      {"type": "grapple", "rect": [150, 640, 160, 40]},
+      {"type": "grapple", "rect": [590, 700, 160, 40]}
+    ]
+  },
+  {
+    "id": "river-gem",
+    "width": 650,
+    "elements": [
+      {"type": "water", "rect": [0, -420, 650, 220]},
+      {"type": "grapple", "rect": [245, 660, 160, 40]},
+      {"type": "gem", "at": [325, 40]}
+    ]
+  },
+  {
+    "id": "barge",
+    "width": 900,
+    "elements": [
+      {"type": "water", "rect": [0, -420, 900, 220]},
+      {"type": "solid", "rect": [330, -60, 240, 40]},
+      {"type": "grapple", "rect": [370, 700, 160, 40]}
+    ]
+  },
+  {
+    "id": "barge-checkpoint",
+    "width": 900,
+    "elements": [
+      {"type": "water", "rect": [0, -420, 900, 220]},
+      {"type": "solid", "rect": [300, -60, 300, 40]},
+      {"type": "checkpoint", "at": [450, -20]},
+      {"type": "grapple", "rect": [370, 700, 160, 40]}
+    ]
+  },
+  {
+    "id": "sand-long",
+    "width": 650,
+    "elements": [
+      {"type": "solid", "rect": [0, -40, 100, 40]},
+      {"type": "sand", "rect": [100, -40, 450, 40]},
+      {"type": "solid", "rect": [550, -40, 100, 40]},
+      {"type": "grapple", "rect": [245, 640, 160, 40]}
+    ]
+  },
+  {
+    "id": "bunker-wall",
+    "width": 650,
+    "elements": [
+      {"type": "sand", "rect": [0, -40, 420, 40]},
+      {"type": "solid", "rect": [420, -600, 80, 820]},
+      {"type": "grapple", "rect": [170, 660, 160, 40]}
+    ]
+  },
+  {
+    "id": "sand-step",
+    "width": 650,
+    "elements": [
+      {"type": "sand", "rect": [150, 140, 350, 40]},
+      {"type": "solid", "rect": [150, -600, 350, 740]},
+      {"type": "grapple", "rect": [245, 820, 160, 40]}
+    ]
+  },
+  {
     "id": "finish",
     "width": 600,
     "elements": [
