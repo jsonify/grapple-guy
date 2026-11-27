@@ -71,6 +71,12 @@ public struct Tuning: Equatable, Codable, Sendable {
     /// plays in gentle slow motion: every swing traces the same path, just with more time to read it and react.
     /// The game scene scales frame time by this before handing it to the player's and the bots' simulations.
     public var gameSpeed: Double = 0.8
+    /// The player's Pace setting (#36) multiplies `gameSpeed`: Relaxed by this…
+    public var paceRelaxedFactor: Double = 0.85
+    /// …and Fast by this (Normal leaves it alone). With the 0.8 default: 0.68, 0.8 and 1.0.
+    public var paceFastFactor: Double = 1.25
+    /// False stops every release flip, boosted ones included (the player's Reduce Motion setting turns it off).
+    public var allowsSpins: Bool = true
 
     /// Freeze-frame length on a crash, in seconds (half of it on finishing).
     public var hitStopSeconds: Double = 0.1
