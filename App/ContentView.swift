@@ -10,6 +10,11 @@ struct ContentView: View {
     private static let courseNames: [String] = holes.reduce(into: []) { names, hole in
         if names.last != hole.course { names.append(hole.course) }
     }
+    /// Each course's hole files in order, for the leaderboard.
+    private static let leaderboardCourses: [LeaderboardView.CourseInfo] = courseNames.indices.map { index in
+        LeaderboardView.CourseInfo(id: index, name: courseNames[index],
+                                   holes: holes.filter { $0.courseIndex == index }.map(\.file))
+    }
 
     @State private var levelIndex = 0
     @State private var scene = ContentView.makeScene(0)
@@ -19,6 +24,7 @@ struct ContentView: View {
     @State private var showTuning = false
     @State private var settings = SettingsStore.load()
     @State private var showSettings = false
+    @State private var showLeaderboard = false
     @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
 
     private var effectiveTuning: Tuning {
@@ -54,6 +60,12 @@ struct ContentView: View {
                 }
                 .accessibilityLabel("Next level")
                 Button {
+                    showLeaderboard = true
+                } label: {
+                    Image(systemName: "list.number")
+                }
+                .accessibilityLabel("Leaderboard")
+                Button {
                     showSettings = true
                 } label: {
                     Image(systemName: "gearshape.fill")
@@ -63,6 +75,9 @@ struct ContentView: View {
             }
             .buttonStyle(ChunkyButtonStyle())
             .padding(12)
+        }
+        .sheet(isPresented: $showLeaderboard) {
+            LeaderboardView(courses: Self.leaderboardCourses, selection: Self.holes[levelIndex].courseIndex)
         }
         .sheet(isPresented: $showSettings) {
             SettingsView(settings: $settings, systemReduceMotion: systemReduceMotion)
@@ -111,6 +126,9 @@ struct ContentView: View {
         let hole = holes[index]
         let scene = GameScene(level: LevelLoader.load(hole.file))
         scene.holeLabel = "\(hole.course) · Hole \(hole.number)"
+        scene.holeID = hole.file
+        scene.courseName = hole.course
+        scene.courseHoles = holes.filter { $0.courseIndex == hole.courseIndex }.map(\.file)
         return scene
     }
 

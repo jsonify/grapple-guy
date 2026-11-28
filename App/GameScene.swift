@@ -79,6 +79,14 @@ final class GameScene: SKScene {
     /// Called when the player taps after finishing; ContentView moves on to the next level.
     var onContinue: (() -> Void)?
 
+    /// This hole's file name and its course, for the leaderboard. Without a hole id nothing is recorded.
+    var holeID: String?
+    var courseName: String?
+    /// The course's holes in order (file names).
+    var courseHoles: [String] = []
+    /// After finishing: the first tap shows the course leaderboard, the next one moves on.
+    private var showingCourseBoard = false
+
     var tuning: Tuning {
         get { simulation.tuning }
         set {
@@ -395,7 +403,13 @@ final class GameScene: SKScene {
             respawnAfterCrash()
             return
         case .finished:
-            if let onContinue { onContinue() } else { restartLevel() }
+            if holeID != nil && !showingCourseBoard {
+                showCourseBoard()
+            } else if let onContinue {
+                onContinue()
+            } else {
+                restartLevel()
+            }
             return
         }
 
@@ -449,6 +463,7 @@ final class GameScene: SKScene {
     /// Restarts the whole level (the ↺ button, or tapping after finishing).
     func restartLevel() {
         activeTouch = nil
+        showingCourseBoard = false
         simulation.reset()
         for view in bots { view.bot.reset() }
         resetLevelDecorations()
@@ -703,6 +718,10 @@ final class GameScene: SKScene {
         // Bots still on the course play on instantly so the hole can be scored now.
         for view in bots where !view.bot.hasStopped { view.bot.finishInstantly() }
         let standings = currentStandings()
+        if let holeID {
+            LeaderboardStore.record(HoleResult(hole: holeID, par: simulation.level.par, entries: standings),
+                                    courseHoles: courseHoles)
+        }
         let place = (standings.firstIndex { $0.isPlayer } ?? 0) + 1
         let placeTitle = place == 1 ? "YOU WIN THE HOLE!" : "\(ordinal(place)) PLACE"
         var parts: [NSAttributedString] = [
@@ -726,7 +745,36 @@ final class GameScene: SKScene {
             footer += String(format: "Best %d swings · %.1fs     ", best, record.bestTime ?? result.time)
         }
         parts.append(Theme.text(footer, size: 13, color: faded))
-        parts.append(Theme.text(onContinue == nil ? "Tap to play again" : "Tap for the next hole ▶", size: 18, color: Palette.boost))
+        let next = holeID != nil ? "Tap for the leaderboard ▶" : (onContinue == nil ? "Tap to play again" : "Tap for the next hole ▶")
+        parts.append(Theme.text(next, size: 18, color: Palette.boost))
+        statusCard.set(Theme.join(parts), maxWidth: size.width * 0.9, maxHeight: size.height * 0.86)
+    }
+
+    /// The course leaderboard after a hole: everyone's totals so far, and the final standings after the last hole.
+    private func showCourseBoard() {
+        showingCourseBoard = true
+        let board = LeaderboardStore.load()
+        let rows = board.standings(for: courseHoles)
+        let played = board.played(courseHoles).count
+        let course = (courseName ?? "Course").uppercased()
+        let finalRound = !courseHoles.isEmpty && played == courseHoles.count && holeID == courseHoles.last
+        var parts: [NSAttributedString] = []
+        if finalRound, let leader = rows.first {
+            let title = leader.isPlayer ? "YOU WIN THE COURSE!" : "\(leader.name.uppercased()) WINS THE COURSE"
+            parts.append(Theme.text("FINAL · \(course)\n", size: 16, color: Palette.hudText.withAlphaComponent(0.7)))
+            parts.append(Theme.text("\(title)\n", size: 32, color: leader.isPlayer ? Palette.gold : .white, outline: Palette.outline))
+        } else {
+            parts.append(Theme.text("LEADERBOARD\n", size: 32, color: .white, outline: Palette.outline))
+            parts.append(Theme.text("\(course) · after \(played) of \(courseHoles.count) holes\n", size: 16,
+                                    color: Palette.hudText.withAlphaComponent(0.7)))
+        }
+        for (i, row) in rows.enumerated() {
+            let wins = row.holeWins == 1 ? "1 win" : "\(row.holeWins) wins"
+            let line = "\(ordinal(i + 1))  \(row.isPlayer ? "You" : row.name)   \(row.toParText)  ·  \(row.strokes) swings  ·  \(wins)\n"
+            parts.append(Theme.text(line, size: 17, color: row.isPlayer ? Palette.gold : nameColor(row.name)))
+        }
+        let next = onContinue == nil ? "Tap to play again" : (finalRound ? "Tap for the next course ▶" : "Tap for the next hole ▶")
+        parts.append(Theme.text("\n" + next, size: 18, color: Palette.boost))
         statusCard.set(Theme.join(parts), maxWidth: size.width * 0.9, maxHeight: size.height * 0.86)
     }
 

@@ -423,7 +423,7 @@ public final class Bot {
 }
 
 /// One player's result on a hole.
-public struct RaceEntry: Equatable, Sendable {
+public struct RaceEntry: Codable, Equatable, Sendable {
     public var name: String
     public var strokes: Int
     /// Finish time, or nil if they didn't finish.
