@@ -15,6 +15,28 @@ final class BotTests: XCTestCase {
         return Level(surfaces: surfaces, spawn: Vec2(0, 40), killY: -500, finishX: end + 100, par: 4, windRange: wind)
     }
 
+    /// The old trap (#37): the bot stands on top of a pad, and a hanging gate ahead blocks every shot from up
+    /// there. The way on is under the gate, so it has to get down first.
+    private func padTopInFrontOfAGate() -> Level {
+        var surfaces = [
+            Surface(bounds: AABB(x: -200, y: -40, width: 2900, height: 40), isGrappleable: false),  // street-level roof
+            Surface(bounds: AABB(x: 300, y: 560, width: 220, height: 40), isGrappleable: true),     // the pad it's stuck on
+            Surface(bounds: AABB(x: 700, y: 420, width: 70, height: 1300), isGrappleable: false),   // the gate
+        ]
+        for (i, y) in [300.0, 420, 500, 520].enumerated() {
+            surfaces.append(Surface(bounds: AABB(x: 850 + Double(i) * 400, y: y, width: 160, height: 40), isGrappleable: true))
+        }
+        return Level(surfaces: surfaces, spawn: Vec2(410, 620), killY: -500, finishX: 2500, par: 5)
+    }
+
+    func testBotStuckOnAPadTopInFrontOfAGateStepsOffAndFinishes() {
+        for skill in [BotSkill.steady, .pro] {
+            let bot = Bot(level: padTopInFrontOfAGate(), skill: skill, seed: 23, wind: 0, ropeRange: 1300)
+            bot.finishInstantly(maxSeconds: 120)
+            XCTAssertTrue(bot.isFinished, "\(skill.name) stayed stuck: at \(bot.sim.position) after \(bot.sim.strokes) swings")
+        }
+    }
+
     func testCopyIsIndependent() {
         let sim = SwingSimulation(level: course(), seed: 1)
         sim.velocity = Vec2(300, 0)
@@ -111,8 +133,11 @@ final class BotTests: XCTestCase {
     func testDiagnosticDecisionLogs() {
         var padTop = course()
         padTop.spawn = Vec2(380, 620)
-        for (name, level, skill) in [("PADTOP", padTop, BotSkill.steady), ("COURSE", course(), BotSkill.pro)] {
-            let bot = Bot(level: level, skill: skill, seed: name == "PADTOP" ? 5 : 1, wind: 0, ropeRange: 1300)
+        let scenarios: [(String, Level, BotSkill, UInt64)] = [
+            ("PADTOP", padTop, .steady, 5), ("COURSE", course(), .pro, 1), ("GATETRAP", padTopInFrontOfAGate(), .steady, 23),
+        ]
+        for (name, level, skill, seed) in scenarios {
+            let bot = Bot(level: level, skill: skill, seed: seed, wind: 0, ropeRange: 1300)
             bot.recordsDecisions = true
             bot.finishInstantly(maxSeconds: 90)
             for line in bot.decisionLog.prefix(160) { print("DIAG \(name) \(line)") }

@@ -67,6 +67,8 @@ public final class Bot {
     private var bestX = -Double.infinity
     private var swingsWithoutProgress = 0
     private var lastFaithShot = -Double.infinity
+    /// Where the bot last stepped off a pad on purpose (#37), so it doesn't keep doing it in one spot.
+    private var lastStepOffX = -Double.infinity
     /// Like golf's pick-up rule: a bot stops after this many swings and takes a DNF.
     public var swingLimit: Int
     public private(set) var gaveUp = false
@@ -111,6 +113,7 @@ public final class Bot {
         bestX = -.infinity
         swingsWithoutProgress = 0
         lastFaithShot = -.infinity
+        lastStepOffX = -.infinity
         gaveUp = false
         phase = .thinking(until: skill.reaction)
     }
@@ -183,6 +186,17 @@ public final class Bot {
                 return
             }
             let planned = makePlan()
+            // Stuck on top of a pad with the way ahead blocked (#37): every shot from up here hits the wall or
+            // the pad underfoot. Step off the edge instead (a short tug along the pad top) and plan from below.
+            if standingStill, planned == nil || swingsWithoutProgress >= 2, let stepOff = stepOffPlan() {
+                if sim.fireGrapple(toward: stepOff.target, range: ropeRange) {
+                    note("step off the pad toward \(fmt(stepOff.target)) hold \(stepOff.hold) from \(fmt(sim.position))")
+                    lastStepOffX = sim.position.x
+                    swingsWithoutProgress += 1
+                    phase = .firing(stepOff)
+                    return
+                }
+            }
             guard let plan = planned?.plan else {
                 note("no plan from \(fmt(sim.position)) rope=\(sim.rope != nil) shot=\(sim.shot != nil) state=\(sim.state)")
                 // Nothing useful in reach: wait (or fall) and look again, with an occasional shot of faith.
@@ -279,13 +293,41 @@ public final class Bot {
         return (chosen, scored[pick].score)
     }
 
+    /// The grappleable pad the bot is standing on top of, if any.
+    private func padUnderfoot() -> AABB? {
+        let feet = sim.position.y - sim.tuning.torsoRadius
+        return sim.level.surfaces.first { surface in
+            surface.isGrappleable && abs(surface.bounds.upper.y - feet) < 8
+                && sim.position.x >= surface.bounds.lower.x - 4 && sim.position.x <= surface.bounds.upper.x + 4
+        }?.bounds
+    }
+
+    /// A shot at the pad underfoot, near one of its ends, whose tug slides the bot off that edge so it drops
+    /// below the pad (#37). Only plans that really end up below the pad, safely, count. Nil if there are none.
+    private func stepOffPlan() -> Plan? {
+        guard let pad = padUnderfoot(), sim.position.x > lastStepOffX + 150 else { return nil }
+        var best: (plan: Plan, score: Double)?
+        // Aim just inside each end, a touch below the top so the ray lands on the top face.
+        for edgeX in [pad.upper.x - 3, pad.lower.x + 3] {
+            for hold in [0, 0.15, 0.3, 0.6, 0.9] {
+                let plan = Plan(target: Vec2(edgeX, pad.upper.y - 2), hold: hold)
+                let score = evaluate(plan, pad: pad, steppingOff: true)
+                note("  step-off \(fmt(plan.target)) hold \(hold) -> \(Int(score)) [\(lastEvaluation)]")
+                if score > Self.unsafe, score > (best?.score ?? -.infinity) { best = (plan, score) }
+            }
+        }
+        return best?.plan
+    }
+
     /// Simulates a plan ahead (fire → hold → let go → fly) and scores where it ends up.
     /// Why the last evaluated plan scored as it did (for the decision log).
     private var lastEvaluation = ""
 
     private func fmt(_ v: Vec2) -> String { "(\(Int(v.x)),\(Int(v.y)))" }
 
-    private func evaluate(_ plan: Plan, pad: AABB) -> Double {
+    /// With `steppingOff`, the rope is meant to catch the pad underfoot, and the plan only counts if the bot
+    /// ends up below that pad.
+    private func evaluate(_ plan: Plan, pad: AABB, steppingOff: Bool = false) -> Double {
         lastEvaluation = ""
         let lookahead = sim.copy()
         lookahead.simulatesRagdoll = false
@@ -308,7 +350,7 @@ public final class Bot {
             return -1e6
         }
         let padZone = AABB(x: pad.lower.x - 2, y: pad.lower.y - 2, width: pad.width + 4, height: pad.height + 4)
-        guard padZone.contains(anchor), anchor.distance(to: sim.position) > 120 else {
+        guard padZone.contains(anchor), steppingOff || anchor.distance(to: sim.position) > 120 else {
             lastEvaluation = "caught wrong spot \(fmt(anchor))"
             return -1e6
         }
@@ -335,6 +377,13 @@ public final class Bot {
         }
         let final = Self.score(lookahead, startPenalties: startPenalties)
         lastEvaluation = "end \(fmt(lookahead.position)) state=\(lookahead.state) pen=\(lookahead.penalties - startPenalties)"
+        if steppingOff {
+            guard lookahead.position.y < pad.lower.y else {
+                lastEvaluation += " (still up on the pad)"
+                return -1e6
+            }
+            return final
+        }
         if final <= Self.unsafe, let lastGrabbable {
             lastEvaluation += " (grab fallback)"
             return lastGrabbable

@@ -78,6 +78,9 @@ public struct Tuning: Equatable, Codable, Sendable {
     /// False stops every release flip, boosted ones included (the player's Reduce Motion setting turns it off).
     public var allowsSpins: Bool = true
 
+    /// Seconds each number of the "3, 2, 1, GO!" start countdown stays up (real time; 0 skips the countdown).
+    public var countdownBeatSeconds: Double = 0.8
+
     /// Freeze-frame length on a crash, in seconds (half of it on finishing).
     public var hitStopSeconds: Double = 0.1
     /// Extra view (as a fraction) the camera zooms out at high speed.

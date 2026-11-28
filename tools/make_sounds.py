@@ -161,6 +161,21 @@ def splash():
     return out
 
 
+# Countdown: a short, clean beep for 3, 2, 1.
+def countdown():
+    def f(t):
+        return (math.sin(2 * math.pi * 784.0 * t) + 0.2 * math.sin(2 * math.pi * 1568.0 * t)) * env(t, 0.004, 0.09)
+    return render(0.25, f)
+
+
+# Go: the same beep an octave up, longer and brighter.
+def go():
+    def f(t):
+        s = math.sin(2 * math.pi * 1568.0 * t) + 0.35 * math.sin(2 * math.pi * 2352.0 * t)
+        return s * env(t, 0.004, 0.28) * (1 + 0.15 * math.sin(2 * math.pi * 7 * t))
+    return render(0.7, f)
+
+
 if __name__ == "__main__":
     os.makedirs(OUT, exist_ok=True)
     write("shoot", shoot(), 0.5)
@@ -172,4 +187,6 @@ if __name__ == "__main__":
     write("crash", crash(), 0.8)
     write("finish", finish(), 0.6)
     write("splash", splash(), 0.7)
+    write("countdown", countdown(), 0.45)
+    write("go", go(), 0.5)
     print("wrote", sorted(os.listdir(OUT)))

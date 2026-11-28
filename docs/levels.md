@@ -80,7 +80,7 @@ Every level file must be listed exactly once (except `test-room`, kept for exper
 
 ### Design rules learned from bot playtests
 
-- **Don't leave a standable pad top in front of a gate.** Landing on top of it leaves the hanging wall blocking every shot. The `gate` chunks grab from the underside of an overhang for this reason.
+- **Don't leave a standable pad top in front of a gate.** Landing on top of it leaves the hanging wall blocking every shot. The `gate` chunks grab from the underside of an overhang for this reason. (Bots can now step off such a pad to get under the gate, #37, but it costs them a swing and players find it frustrating too.)
 - **Don't put a gate straight after a tall wall.** Over 420, then under 320, inside 600 points, is too tight.
 - **Tunnel roofs must be out of reach.** `roof-tunnel` is a tall slab so nobody ends up on top with every pad underneath.
 

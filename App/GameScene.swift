@@ -32,6 +32,10 @@ final class GameScene: SKScene {
     private let penaltyCard = Card(fill: Palette.overPar, stroke: Palette.outline, padding: CGSize(width: 20, height: 8))
     /// Live standings, under the gems/time card.
     private let standingsCard = Card(padding: CGSize(width: 14, height: 6), cornerRadius: 14)
+    /// Big "3", "2", "1", "GO!" in the middle of the screen before the race starts.
+    private let countdownLabel = SKLabelNode()
+    /// Running until GO: nobody moves and the clock doesn't start, so everyone leaves together.
+    private var countdown: RaceCountdown?
 
     /// Computer opponents racing the same hole (#32), each with its own stickman and rope.
     private struct BotView {
@@ -133,7 +137,11 @@ final class GameScene: SKScene {
         if Self.hasAttachedOnce { hintCard.alpha = 0 }
         penaltyCard.zPosition = 30
         statusCard.zPosition = 40
+        countdownLabel.zPosition = 35
+        countdownLabel.alpha = 0
+        cameraNode.addChild(countdownLabel)
 
+        startCountdown()
         showIntro()
 
         layoutForSize()
@@ -159,6 +167,7 @@ final class GameScene: SKScene {
         updateWindCard()
         statusCard.position = CGPoint(x: 0, y: size.height * 0.05)
         introCard.position = CGPoint(x: 0, y: size.height * 0.08)
+        countdownLabel.position = CGPoint(x: 0, y: -size.height * 0.16)
         hintCard.set(Theme.text("Tap an ORANGE pad · hold to pull in · let go to fly", size: 15),
                      maxWidth: size.width * 0.7)
         hintCard.position = CGPoint(x: 0, y: -size.height / 2 + 40)
@@ -218,6 +227,16 @@ final class GameScene: SKScene {
     override func update(_ currentTime: TimeInterval) {
         let dt = lastUpdate.map { min(currentTime - $0, 1.0 / 20.0) } ?? 0
         lastUpdate = currentTime
+
+        // Start countdown: everyone is held on the tee until GO (real time, so game speed doesn't stretch it).
+        if var current = countdown {
+            for event in current.advance(dt) { showCountdown(event) }
+            countdown = current.isRunning ? current : nil
+            if countdown != nil {
+                render(dt: dt)
+                return
+            }
+        }
 
         // Hit-stop: freeze the simulation briefly; rendering (shake, camera) keeps going.
         // Game speed: the player and the bots share one scaled clock, so races stay fair.
@@ -368,6 +387,7 @@ final class GameScene: SKScene {
 
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
         guard activeTouch == nil, let touch = touches.first else { return }
+        guard countdown == nil else { return }  // no jumping the start
 
         switch simulation.state {
         case .playing: break
@@ -432,6 +452,7 @@ final class GameScene: SKScene {
         simulation.reset()
         for view in bots { view.bot.reset() }
         resetLevelDecorations()
+        startCountdown()
         afterRespawn()
     }
 
@@ -461,7 +482,48 @@ final class GameScene: SKScene {
         introCard.set(Theme.join(parts), maxWidth: size.width * 0.9, maxHeight: size.height * 0.7)
         introCard.removeAllActions()
         introCard.alpha = 1
-        introCard.run(.sequence([.wait(forDuration: 2.5), .fadeOut(withDuration: 0.5)]))
+        // During the start countdown the intro stays up until GO.
+        if countdown == nil {
+            introCard.run(.sequence([.wait(forDuration: 2.5), .fadeOut(withDuration: 0.5)]))
+        }
+    }
+
+    /// Begins "3, 2, 1, GO!" (skipped when the Tune panel sets the beat to 0).
+    private func startCountdown() {
+        let next = RaceCountdown(beats: 3, beatSeconds: tuning.countdownBeatSeconds)
+        countdown = next.duration > 0 ? next : nil
+        countdownLabel.removeAllActions()
+        countdownLabel.alpha = 0
+    }
+
+    private func showCountdown(_ event: RaceCountdown.Event) {
+        let text: String
+        let color: SKColor
+        switch event {
+        case .beat(let n):
+            text = "\(n)"
+            color = .white
+            feedback.play(.countdown)
+            feedback.haptic(.light)
+        case .go:
+            text = "GO!"
+            color = Palette.gold
+            feedback.play(.go)
+            feedback.haptic(.medium)
+            hideIntro()
+        }
+        countdownLabel.attributedText = Theme.text(text, size: 110, color: color, outline: Palette.outline)
+        countdownLabel.removeAllActions()
+        countdownLabel.alpha = 1
+        countdownLabel.setScale(1.6)
+        let pop = SKAction.scale(to: 1, duration: 0.18)
+        pop.timingMode = .easeOut
+        if event == .go {
+            countdownLabel.run(.sequence([pop, .wait(forDuration: 0.35),
+                                          .group([.fadeOut(withDuration: 0.3), .scale(to: 1.3, duration: 0.3)])]))
+        } else {
+            countdownLabel.run(pop)
+        }
     }
 
     private func hideIntro() {
