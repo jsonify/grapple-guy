@@ -16,6 +16,7 @@ struct TuningPanel: View {
                 slider("Game speed (×)", $tuning.gameSpeed, 0.4...1.2)
                 slider("Relaxed pace ×", $tuning.paceRelaxedFactor, 0.5...1)
                 slider("Fast pace ×", $tuning.paceFastFactor, 1...1.6)
+                slider("Countdown beat (s)", $tuning.countdownBeatSeconds, 0...1.5)
                 Toggle("Flips allowed", isOn: $tuning.allowsSpins).font(.caption)
                 slider("Gravity", $tuning.gravity, 200...5000)
                 slider("Swing gravity ×", $tuning.swingGravityMultiplier, 0.5...4)
