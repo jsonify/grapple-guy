@@ -43,6 +43,11 @@ public struct RaceCountdown: Equatable, Sendable {
     public mutating func advance(_ deltaTime: Double) -> [Event] {
         guard isRunning else { return [] }
         elapsed += max(0, deltaTime)
+        // No beat length: no numbers to show, just go.
+        guard beatSeconds > 0 else {
+            announced = beats
+            return [.go]
+        }
         var events: [Event] = []
         while announced < currentIndex {
             announced += 1
